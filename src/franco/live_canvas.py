@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
+from difflib import get_close_matches
 import json
 import math
 from pathlib import Path
 import re
 import threading
 import time
+import unicodedata
 
 try:
     import pygame
@@ -22,6 +24,41 @@ COLORS = {
     "bianco": (239, 235, 228), "nero": (24, 24, 24),
     "grigio": (135, 135, 135), "rosa": (236, 112, 170),
 }
+
+# Spoken Italian is noisy: ASR may return "sfera", "sphera", "razzo" or
+# "rasso". Keep the translation deterministic and local before any model
+# fallback is considered.
+WORD_ALIASES = {
+    "sfera": "cerchio", "palla": "cerchio", "pallina": "cerchio",
+    "cerchietto": "cerchio", "cerchi": "cerchio", "circle": "cerchio",
+    "sphera": "cerchio", "sphera": "cerchio",
+    "quadro": "rettangolo", "quadrato": "rettangolo", "box": "rettangolo",
+    "rocket": "razzo", "racket": "razzo", "rasso": "razzo", "razzo": "razzo",
+    "stella": "stella", "stellina": "stella", "star": "stella",
+    "triangolo": "triangolo", "triangolare": "triangolo",
+}
+CANVAS_KINDS = ("cerchio", "rettangolo", "linea", "testo", "razzo", "stella", "triangolo")
+
+
+def _fold(text: str) -> str:
+    return "".join(ch for ch in unicodedata.normalize("NFKD", text.lower())
+                   if not unicodedata.combining(ch))
+
+
+def normalize_canvas_command(text: str) -> str:
+    """Normalize common ASR variants without changing the user's intent."""
+    folded = _fold(str(text or ""))
+    words = re.findall(r"[a-z0-9]+", folded)
+    known = set(WORD_ALIASES) | set(CANVAS_KINDS)
+    normalized = []
+    for word in words:
+        replacement = WORD_ALIASES.get(word)
+        if replacement is None and word not in known:
+            close = get_close_matches(word, known, n=1, cutoff=.84)
+            replacement = WORD_ALIASES.get(close[0], close[0]) if close else word
+        normalized.append(replacement or word)
+    # Preserve numbers and quoted text sufficiently for the existing parser.
+    return " ".join(normalized)
 
 
 @dataclass
@@ -186,8 +223,9 @@ class LiveCanvas:
                     self.items[-1] if self.items else None)
 
     def apply_command(self, command):
-        text, low = str(command).strip(), str(command).lower().strip()
-        canvas_words = ("cerchio", "rettangolo", "linea", "testo", "canvas", "tela",
+        text = str(command).strip()
+        low = normalize_canvas_command(text)
+        canvas_words = CANVAS_KINDS + ("canvas", "tela",
                         "sposta", "ridimensiona", "elimina", "cambia colore")
         if not any(word in low for word in canvas_words):
             return None
@@ -195,10 +233,10 @@ class LiveCanvas:
             self.items.clear(); self.selected = None; self._save()
             return "Tela pulita."
         if low.startswith(("crea", "disegna", "aggiungi")) or "crea un" in low:
-            kind = next((name for name in ("cerchio", "rettangolo", "linea", "testo")
+            kind = next((name for name in CANVAS_KINDS
                          if name in low), None)
             if not kind:
-                return "Dimmi se vuoi un cerchio, rettangolo, linea o testo."
+                return "Posso creare cerchi, sfere, rettangoli, razzi, stelle, triangoli, linee e testo."
             item_id = self._new_id()
             label = ""
             if kind == "testo":
@@ -206,8 +244,8 @@ class LiveCanvas:
                 label = quoted.group(1) if quoted else re.sub(
                     r".*?testo\s+", "", text, flags=re.IGNORECASE).strip()
             sizes = [int(n) for n in re.findall(r"\b(\d{1,4})\b", low)]
-            width = sizes[0] if sizes else (150 if kind != "linea" else 220)
-            height = sizes[1] if len(sizes) > 1 else (width if kind == "cerchio" else 100)
+            width = sizes[0] if sizes else (150 if kind not in ("linea", "razzo") else 220)
+            height = sizes[1] if len(sizes) > 1 else (width if kind in ("cerchio", "stella", "triangolo") else 100)
             item = CanvasItem(item_id, kind, 400, 260, width, height, self._color(low), label)
             self.items.append(item); self.selected = item_id
             if len(self.items) > 500:
@@ -333,6 +371,31 @@ class LiveCanvas:
                 pygame.draw.circle(screen, color, (int(x), int(y)), max(2, int(width/2)), 0)
             elif item.kind == "rettangolo":
                 pygame.draw.rect(screen, color, (x-width/2, y-height/2, width, height), border_radius=4)
+            elif item.kind == "triangolo":
+                pygame.draw.polygon(screen, color, ((x, y-height/2),
+                                                     (x-width/2, y+height/2),
+                                                     (x+width/2, y+height/2)))
+            elif item.kind == "stella":
+                points = []
+                for index in range(10):
+                    radius = width / 2 if index % 2 == 0 else width / 4
+                    angle = -math.pi / 2 + index * math.pi / 5
+                    points.append((x + math.cos(angle) * radius, y + math.sin(angle) * radius))
+                pygame.draw.polygon(screen, color, points)
+            elif item.kind == "razzo":
+                body = pygame.Rect(x-width*.22, y-height*.35, width*.44, height*.7)
+                pygame.draw.ellipse(screen, color, body)
+                pygame.draw.polygon(screen, color, ((x, y-height*.5),
+                                                     (x-width*.22, y-height*.22),
+                                                     (x+width*.22, y-height*.22)))
+                pygame.draw.polygon(screen, color, ((x-width*.22, y+height*.15),
+                                                     (x-width*.48, y+height*.38),
+                                                     (x-width*.22, y+height*.3)))
+                pygame.draw.polygon(screen, color, ((x+width*.22, y+height*.15),
+                                                     (x+width*.48, y+height*.38),
+                                                     (x+width*.22, y+height*.3)))
+                pygame.draw.ellipse(screen, (255, 220, 90),
+                                    (x-width*.10, y-height*.05, width*.20, height*.16))
             elif item.kind == "linea":
                 pygame.draw.line(screen, color, (x, y), (x+width, y+height), max(2, int(3*self.zoom)))
             elif item.kind == "testo":
