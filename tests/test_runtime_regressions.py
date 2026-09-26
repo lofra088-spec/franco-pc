@@ -52,7 +52,12 @@ def load_classes(path):
 class RuntimeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.variants = [load_classes(ROOT / "src/franco/_monolith.py"), load_classes(ROOT.parent / "francov6reall.py")]
+        cls.variants = [load_classes(ROOT / "src/franco/_monolith.py")]
+        # The historical monolith lives beside the original checkout and is
+        # intentionally not required in a clean GitHub clone.
+        legacy = ROOT.parent / "francov6reall.py"
+        if legacy.is_file():
+            cls.variants.append(load_classes(legacy))
         cls.variants[0]["CacheManager"] = importlib.import_module("franco.core.cache").CacheManager
 
     def test_cache_none_and_single_concurrent_computation(self):
