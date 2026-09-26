@@ -10,6 +10,8 @@ import re
 import threading
 import time
 import unicodedata
+import ast
+import operator
 
 try:
     import pygame
@@ -38,6 +40,9 @@ WORD_ALIASES = {
     "triangolo": "triangolo", "triangolare": "triangolo",
 }
 CANVAS_KINDS = ("cerchio", "rettangolo", "linea", "testo", "razzo", "stella", "triangolo")
+_ARITHMETIC = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+               ast.Div: operator.truediv, ast.Pow: operator.pow, ast.Mod: operator.mod,
+               ast.USub: operator.neg}
 
 
 def _fold(text: str) -> str:
@@ -59,6 +64,23 @@ def normalize_canvas_command(text: str) -> str:
         normalized.append(replacement or word)
     # Preserve numbers and quoted text sufficiently for the existing parser.
     return " ".join(normalized)
+
+
+def safe_calculate(expression: str):
+    expression = expression.replace(",", ".").replace("×", "*").replace("÷", "/")
+    tree = ast.parse(expression, mode="eval")
+    def visit(node):
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return node.value
+        if isinstance(node, ast.BinOp) and type(node.op) in _ARITHMETIC:
+            value = _ARITHMETIC[type(node.op)](visit(node.left), visit(node.right))
+            if abs(float(value)) > 1e15: raise ValueError("risultato fuori limite")
+            return value
+        if isinstance(node, ast.UnaryOp) and type(node.op) in _ARITHMETIC:
+            return _ARITHMETIC[type(node.op)](visit(node.operand))
+        raise ValueError("espressione non supportata")
+    value = visit(tree.body)
+    return int(value) if float(value).is_integer() else round(value, 8)
 
 
 @dataclass
@@ -232,9 +254,32 @@ class LiveCanvas:
         if any(word in low for word in ("pulisci tela", "svuota tela", "cancella tutto")):
             self.items.clear(); self.selected = None; self._save()
             return "Tela pulita."
-        if low.startswith(("crea", "disegna", "aggiungi")) or "crea un" in low:
+        if re.search(r"\b(calcola|quanto fa|risolvi)\b", low):
+            expression = re.sub(r".*?\b(?:calcola|quanto fa|risolvi)\b", "", low).strip(" :")
+            try:
+                result = safe_calculate(expression)
+            except (SyntaxError, ValueError, ZeroDivisionError):
+                return "Non riesco a calcolare questa espressione."
+            return self._add_text(f"{expression} = {result}")
+        geometry = re.search(r"\b(area|perimetro|circonferenza)\b", low)
+        if geometry:
+            numbers = [float(n.replace(",", ".")) for n in re.findall(r"\d+(?:[.,]\d+)?", low)]
+            if numbers:
+                value = numbers[0]
+                if "cerchio" in low or "circonferenza" in low:
+                    result = math.pi * value ** 2 if "area" in low else 2 * math.pi * value
+                    label = "area" if "area" in low else "circonferenza"
+                elif "triangolo" in low and len(numbers) >= 2:
+                    result, label = value * numbers[1] / 2, "area triangolo"
+                else:
+                    result, label = value ** 2, "area quadrato"
+                return self._add_text(f"{label} = {round(result, 4)}")
+        if low.startswith(("crea", "creami", "disegna", "aggiungi", "scrivi", "scrivimi",
+                           "annota", "mostra", "rappresenta", "fai")) or "crea un" in low:
             kind = next((name for name in CANVAS_KINDS
                          if name in low), None)
+            if any(word in low for word in ("scrivi", "scrivimi", "annota", "schema")):
+                kind = "testo"
             if not kind:
                 return "Posso creare cerchi, sfere, rettangoli, razzi, stelle, triangoli, linee e testo."
             item_id = self._new_id()
@@ -242,7 +287,8 @@ class LiveCanvas:
             if kind == "testo":
                 quoted = re.search(r'["“](.+?)["”]', text)
                 label = quoted.group(1) if quoted else re.sub(
-                    r".*?testo\s+", "", text, flags=re.IGNORECASE).strip()
+                    r".*?(?:testo|scrivimi|scrivi|annota|schema)\s*", "", text, flags=re.IGNORECASE).strip()
+                label = label.replace(";", "\n").replace(" poi ", "\n")
             sizes = [int(n) for n in re.findall(r"\b(\d{1,4})\b", low)]
             width = sizes[0] if sizes else (150 if kind not in ("linea", "razzo") else 220)
             height = sizes[1] if len(sizes) > 1 else (width if kind in ("cerchio", "stella", "triangolo") else 100)
@@ -277,6 +323,14 @@ class LiveCanvas:
                 target.w *= factor; target.h *= factor
             self._save(); return f"Elemento {target.id} ridimensionato."
         return "Comando tela riconosciuto, ma manca l'azione da eseguire."
+
+    def _add_text(self, label):
+        item_id = self._new_id()
+        self.items.append(CanvasItem(item_id, "testo", 400, 260, 420, 120,
+                                     COLORS["bianco"], str(label)))
+        self.selected = item_id
+        self._save()
+        return f"Ho scritto sulla tela: {label}."
 
     def _world_to_screen(self, x, y):
         return (self.viewport.x + self.viewport.width / 2 + (x - 400 + self.offset[0]) * self.zoom,
@@ -399,9 +453,14 @@ class LiveCanvas:
             elif item.kind == "linea":
                 pygame.draw.line(screen, color, (x, y), (x+width, y+height), max(2, int(3*self.zoom)))
             elif item.kind == "testo":
-                rendered = fonts["normal"].render(item.text or "Testo", True, color)
-                screen.blit(rendered, (x, y))
-                width, height = rendered.get_size()
+                lines = (item.text or "Testo").splitlines() or ["Testo"]
+                rendered_lines = [fonts["normal"].render(line, True, color) for line in lines]
+                line_height = max((surface.get_height() for surface in rendered_lines), default=24)
+                width = max((surface.get_width() for surface in rendered_lines), default=80)
+                height = line_height * len(rendered_lines)
+                for index, rendered in enumerate(rendered_lines):
+                    screen.blit(rendered, (x - rendered.get_width() / 2,
+                                           y - height / 2 + index * line_height))
             if selected:
                 pygame.draw.rect(screen, (255, 174, 70), (x-width/2-5, y-height/2-5,
                                  width+10, height+10), 2, border_radius=5)
