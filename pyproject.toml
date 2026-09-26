@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "franco"
+version = "6.0.0"
+description = "F.R.A.N.C.O. 6.0 NEXUS — Full Responsive Autonomous Neural Control Operator"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+authors = [{ name = "FRANCO AI Systems" }]
+dependencies = [
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+voice = ["SpeechRecognition", "pyaudio"]
+ai = ["anthropic", "openai"]
+full = ["SpeechRecognition", "pyaudio", "anthropic", "openai", "requests", "cryptography"]
+dev = ["pytest", "ruff"]
+
+[project.scripts]
+franco = "franco.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+franco = ["data/*.json"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

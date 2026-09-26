@@ -1,0 +1,510 @@
+{
+  "blocco note": {
+    "cmd": "notepad",
+    "aliases": [
+      "notepad",
+      "note",
+      "testo"
+    ]
+  },
+  "calcolatrice": {
+    "cmd": "calc",
+    "aliases": [
+      "calc",
+      "calculator",
+      "calcola"
+    ]
+  },
+  "paint": {
+    "cmd": "mspaint",
+    "aliases": [
+      "disegno",
+      "pittura"
+    ]
+  },
+  "esplora risorse": {
+    "cmd": "explorer",
+    "aliases": [
+      "explorer",
+      "file",
+      "risorse"
+    ]
+  },
+  "task manager": {
+    "cmd": "taskmgr",
+    "aliases": [
+      "gestione attività",
+      "processi",
+      "task"
+    ]
+  },
+  "impostazioni": {
+    "cmd": "ms-settings:",
+    "aliases": [
+      "settings",
+      "opzioni"
+    ]
+  },
+  "cmd": {
+    "cmd": "cmd",
+    "aliases": [
+      "prompt",
+      "dos",
+      "terminale cmd"
+    ]
+  },
+  "powershell": {
+    "cmd": "powershell",
+    "aliases": [
+      "ps",
+      "shell"
+    ]
+  },
+  "terminal": {
+    "cmd": "wt",
+    "aliases": [
+      "windows terminal",
+      "wt"
+    ]
+  },
+  "registro": {
+    "cmd": "regedit",
+    "aliases": [
+      "regedit",
+      "registro di sistema"
+    ]
+  },
+  "servizi": {
+    "cmd": "services.msc",
+    "aliases": [
+      "services"
+    ]
+  },
+  "gestione disco": {
+    "cmd": "diskmgmt.msc",
+    "aliases": [
+      "disk",
+      "dischi"
+    ]
+  },
+  "gestione dispositivi": {
+    "cmd": "devmgmt.msc",
+    "aliases": [
+      "devices",
+      "dispositivi"
+    ]
+  },
+  "pulizia disco": {
+    "cmd": "cleanmgr",
+    "aliases": [
+      "cleanup",
+      "pulizia"
+    ]
+  },
+  "informazioni sistema": {
+    "cmd": "msinfo32",
+    "aliases": [
+      "sysinfo",
+      "info sistema"
+    ]
+  },
+  "pannello di controllo": {
+    "cmd": "control",
+    "aliases": [
+      "control panel",
+      "pannello"
+    ]
+  },
+  "word": {
+    "cmd": "winword",
+    "aliases": [
+      "microsoft word",
+      "documento"
+    ]
+  },
+  "excel": {
+    "cmd": "excel",
+    "aliases": [
+      "microsoft excel",
+      "foglio di calcolo",
+      "spreadsheet"
+    ]
+  },
+  "powerpoint": {
+    "cmd": "powerpnt",
+    "aliases": [
+      "microsoft powerpoint",
+      "presentazione",
+      "slide"
+    ]
+  },
+  "outlook": {
+    "cmd": "outlook",
+    "aliases": [
+      "microsoft outlook",
+      "posta"
+    ]
+  },
+  "onenote": {
+    "cmd": "onenote",
+    "aliases": [
+      "microsoft onenote",
+      "note digitali"
+    ]
+  },
+  "teams": {
+    "cmd": "teams",
+    "aliases": [
+      "microsoft teams",
+      "riunioni"
+    ]
+  },
+  "access": {
+    "cmd": "msaccess",
+    "aliases": [
+      "microsoft access",
+      "database access"
+    ]
+  },
+  "chrome": {
+    "cmd": "chrome",
+    "aliases": [
+      "google chrome",
+      "browser google"
+    ]
+  },
+  "firefox": {
+    "cmd": "firefox",
+    "aliases": [
+      "mozilla firefox",
+      "mozilla"
+    ]
+  },
+  "edge": {
+    "cmd": "msedge",
+    "aliases": [
+      "microsoft edge",
+      "edge browser"
+    ]
+  },
+  "opera": {
+    "cmd": "opera",
+    "aliases": [
+      "opera browser"
+    ]
+  },
+  "brave": {
+    "cmd": "brave",
+    "aliases": [
+      "brave browser"
+    ]
+  },
+  "vivaldi": {
+    "cmd": "vivaldi",
+    "aliases": [
+      "vivaldi browser"
+    ]
+  },
+  "discord": {
+    "cmd": "discord",
+    "aliases": [
+      "disc"
+    ]
+  },
+  "telegram": {
+    "cmd": "telegram",
+    "aliases": [
+      "tg"
+    ]
+  },
+  "whatsapp": {
+    "cmd": "whatsapp",
+    "aliases": [
+      "wa",
+      "whats app"
+    ]
+  },
+  "skype": {
+    "cmd": "skype",
+    "aliases": [
+      "microsoft skype"
+    ]
+  },
+  "zoom": {
+    "cmd": "zoom",
+    "aliases": [
+      "zoom meeting"
+    ]
+  },
+  "slack": {
+    "cmd": "slack",
+    "aliases": []
+  },
+  "visual studio code": {
+    "cmd": "code",
+    "aliases": [
+      "vscode",
+      "vs code",
+      "code editor"
+    ]
+  },
+  "visual studio": {
+    "cmd": "devenv",
+    "aliases": [
+      "vs",
+      "studio"
+    ]
+  },
+  "pycharm": {
+    "cmd": "pycharm64",
+    "aliases": [
+      "pycharm ide",
+      "jetbrains pycharm"
+    ]
+  },
+  "intellij": {
+    "cmd": "idea64",
+    "aliases": [
+      "intellij idea",
+      "jetbrains intellij"
+    ]
+  },
+  "webstorm": {
+    "cmd": "webstorm64",
+    "aliases": [
+      "jetbrains webstorm"
+    ]
+  },
+  "sublime text": {
+    "cmd": "sublime_text",
+    "aliases": [
+      "sublime",
+      "subl"
+    ]
+  },
+  "atom": {
+    "cmd": "atom",
+    "aliases": []
+  },
+  "notepad++": {
+    "cmd": "notepad++",
+    "aliases": [
+      "npp",
+      "notepadplusplus"
+    ]
+  },
+  "git bash": {
+    "cmd": "git-bash",
+    "aliases": [
+      "gitbash",
+      "bash"
+    ]
+  },
+  "github desktop": {
+    "cmd": "github",
+    "aliases": [
+      "gh desktop"
+    ]
+  },
+  "postman": {
+    "cmd": "postman",
+    "aliases": [
+      "api testing"
+    ]
+  },
+  "docker desktop": {
+    "cmd": "docker",
+    "aliases": [
+      "docker"
+    ]
+  },
+  "spotify": {
+    "cmd": "spotify",
+    "aliases": [
+      "musica spotify"
+    ]
+  },
+  "vlc": {
+    "cmd": "vlc",
+    "aliases": [
+      "vlc media player",
+      "video player"
+    ]
+  },
+  "itunes": {
+    "cmd": "itunes",
+    "aliases": [
+      "apple itunes"
+    ]
+  },
+  "windows media player": {
+    "cmd": "wmplayer",
+    "aliases": [
+      "wmp",
+      "media player"
+    ]
+  },
+  "audacity": {
+    "cmd": "audacity",
+    "aliases": [
+      "audio editor"
+    ]
+  },
+  "obs studio": {
+    "cmd": "obs64",
+    "aliases": [
+      "obs",
+      "registrazione schermo",
+      "streaming"
+    ]
+  },
+  "davinci resolve": {
+    "cmd": "resolve",
+    "aliases": [
+      "davinci",
+      "video editing"
+    ]
+  },
+  "premiere pro": {
+    "cmd": "premiere",
+    "aliases": [
+      "adobe premiere"
+    ]
+  },
+  "after effects": {
+    "cmd": "afterfx",
+    "aliases": [
+      "adobe after effects",
+      "ae"
+    ]
+  },
+  "photoshop": {
+    "cmd": "photoshop",
+    "aliases": [
+      "adobe photoshop",
+      "ps"
+    ]
+  },
+  "illustrator": {
+    "cmd": "illustrator",
+    "aliases": [
+      "adobe illustrator",
+      "ai"
+    ]
+  },
+  "gimp": {
+    "cmd": "gimp-2.10",
+    "aliases": [
+      "gnu gimp"
+    ]
+  },
+  "blender": {
+    "cmd": "blender",
+    "aliases": [
+      "3d modeling"
+    ]
+  },
+  "figma": {
+    "cmd": "figma",
+    "aliases": [
+      "design figma"
+    ]
+  },
+  "canva": {
+    "cmd": "canva",
+    "aliases": []
+  },
+  "steam": {
+    "cmd": "steam",
+    "aliases": [
+      "valve steam",
+      "giochi"
+    ]
+  },
+  "epic games": {
+    "cmd": "epicgameslauncher",
+    "aliases": [
+      "epic",
+      "epic launcher"
+    ]
+  },
+  "battle.net": {
+    "cmd": "battle.net",
+    "aliases": [
+      "blizzard",
+      "bnet"
+    ]
+  },
+  "origin": {
+    "cmd": "origin",
+    "aliases": [
+      "ea origin"
+    ]
+  },
+  "gog galaxy": {
+    "cmd": "galaxyclient",
+    "aliases": [
+      "gog"
+    ]
+  },
+  "ubisoft connect": {
+    "cmd": "upc",
+    "aliases": [
+      "uplay"
+    ]
+  },
+  "7zip": {
+    "cmd": "7zFM",
+    "aliases": [
+      "7z",
+      "archivio"
+    ]
+  },
+  "winrar": {
+    "cmd": "winrar",
+    "aliases": [
+      "rar"
+    ]
+  },
+  "ccleaner": {
+    "cmd": "ccleaner64",
+    "aliases": [
+      "cleaner"
+    ]
+  },
+  "everything": {
+    "cmd": "everything",
+    "aliases": [
+      "ricerca file"
+    ]
+  },
+  "anydesk": {
+    "cmd": "anydesk",
+    "aliases": [
+      "remote desktop anydesk"
+    ]
+  },
+  "teamviewer": {
+    "cmd": "teamviewer",
+    "aliases": [
+      "remote desktop teamviewer"
+    ]
+  },
+  "dropbox": {
+    "cmd": "dropbox",
+    "aliases": []
+  },
+  "google drive": {
+    "cmd": "googledrivesync",
+    "aliases": [
+      "drive",
+      "gdrive"
+    ]
+  },
+  "onedrive": {
+    "cmd": "onedrive",
+    "aliases": [
+      "microsoft onedrive"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+www
+mail
+ftp
+admin
+dev
+test
+staging
+api
+vpn
+portal
+webmail
+ns1
+ns2
+smtp
+git
+app

@@ -1,0 +1,94 @@
+"""Local-only XTTS / faster-whisper companion for Jarvis. Start with uvicorn."""
+import io
+import os
+import re
+import tempfile
+import threading
+import uuid
+from pathlib import Path
+
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
+import soundfile as sf
+
+app = FastAPI(title="Jarvis local voice")
+VOICE_DIR = Path(os.environ.get("JARVIS_VOICE_DIR", str(Path(__file__).parent / "voices")))
+VOICE_DIR.mkdir(parents=True, exist_ok=True)
+lock = threading.Lock()
+tts_model = None
+stt_model = None
+
+class Speech(BaseModel):
+    text: str = Field(min_length=1, max_length=12000)
+    speaker: str
+    language: str = "it"
+
+@app.get("/health")
+def health():
+    return {"ok": True, "tts_loaded": tts_model is not None, "stt_loaded": stt_model is not None}
+
+@app.post("/speakers")
+def upload_speaker(file: UploadFile = File(...)):
+    content = file.file.read(25 * 1024 * 1024 + 1)
+    if len(content) > 25 * 1024 * 1024:
+        raise HTTPException(413, "Campione troppo grande")
+    try:
+        samples, rate = sf.read(io.BytesIO(content), dtype="float32", always_2d=True)
+    except Exception:
+        raise HTTPException(400, "Usa un file WAV valido")
+    seconds = len(samples) / rate
+    if not 3 <= seconds <= 60:
+        raise HTTPException(400, "Il campione deve durare da 3 a 60 secondi")
+    if abs(samples).max() < 0.001:
+        raise HTTPException(400, "Il campione è silenzioso")
+    name = re.sub(r"[^a-zA-Z0-9_-]", "_", Path(file.filename or "voce").stem)[:50]
+    name += "-" + uuid.uuid4().hex[:8] + ".wav"
+    sf.write(str(VOICE_DIR / name), samples.mean(axis=1), rate, subtype="PCM_16")
+    return {"speaker": name}
+
+@app.post("/tts")
+def synthesize(request: Speech):
+    global tts_model
+    speaker = (VOICE_DIR / request.speaker).resolve()
+    if speaker.parent != VOICE_DIR.resolve() or not speaker.is_file() or speaker.suffix.lower() != ".wav":
+        raise HTTPException(400, "Carica e seleziona un campione vocale WAV nelle impostazioni")
+    with lock:
+        try:
+            import torch
+            from TTS.api import TTS
+            if tts_model is None:
+                tts_model = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to("cuda" if torch.cuda.is_available() else "cpu")
+            if request.language not in tts_model.languages:
+                raise HTTPException(400, "Lingua XTTS non supportata")
+            samples = tts_model.tts(text=request.text, speaker_wav=str(speaker), language=request.language, split_sentences=True)
+            out = io.BytesIO()
+            sf.write(out, samples, tts_model.synthesizer.output_sample_rate, format="WAV")
+            return Response(out.getvalue(), media_type="audio/wav")
+        except HTTPException:
+            raise
+        except Exception as error:
+            raise HTTPException(503, f"XTTS: {error}")
+
+@app.post("/transcribe")
+def transcribe(file: UploadFile = File(...), language: str = Form("it")):
+    global stt_model
+    content = file.file.read(25 * 1024 * 1024 + 1)
+    if len(content) > 25 * 1024 * 1024:
+        raise HTTPException(413, "Registrazione troppo grande")
+    tmp = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as handle:
+            tmp = handle.name
+            handle.write(content)
+        with lock:
+            from faster_whisper import WhisperModel
+            if stt_model is None:
+                stt_model = WhisperModel("base", device="cpu", compute_type="int8")
+            segments, _ = stt_model.transcribe(tmp, language=language, vad_filter=True)
+            return {"text": " ".join(segment.text.strip() for segment in segments)}
+    except Exception as error:
+        raise HTTPException(503, f"Trascrizione: {error}")
+    finally:
+        if tmp:
+            Path(tmp).unlink(missing_ok=True)
