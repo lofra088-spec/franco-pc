@@ -239,7 +239,7 @@ import numbers
 from decimal import Decimal, getcontext
 from fractions import Fraction
 try:
-    from franco_patch_dual_ai import (
+    from .dual_ai import (
            MistralAIClient, DualAIRouter, RealFileSaver, patch_command_engine
        )
     from franco_code_agent import patch_code_agent
@@ -1189,7 +1189,7 @@ print()
 # ==============================================================================
 
 
-from franco_patch_dual_ai import (
+from .dual_ai import (
        MistralAIClient, DualAIRouter, RealFileSaver, patch_command_engine
    )
 # AGGIUNTA: modulo analisi YouTube
@@ -17895,7 +17895,7 @@ class FrancoCore:
 
         # === OMNI AI (multi-modello, 1 chiave OpenRouter) + DUAL ROUTER ===
         try:
-            from franco_patch_dual_ai import (
+            from .dual_ai import (
                 DualAIRouter, RealFileSaver, patch_command_engine
             )
             from franco_omni_ai import OmniAI
