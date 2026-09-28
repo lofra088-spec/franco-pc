@@ -38,8 +38,10 @@ WORD_ALIASES = {
     "rocket": "razzo", "racket": "razzo", "rasso": "razzo", "razzo": "razzo",
     "stella": "stella", "stellina": "stella", "star": "stella",
     "triangolo": "triangolo", "triangolare": "triangolo",
+    "modello": "modello3d", "3d": "modello3d", "wireframe": "modello3d",
+    "cubo": "modello3d", "modello3d": "modello3d",
 }
-CANVAS_KINDS = ("cerchio", "rettangolo", "linea", "testo", "razzo", "stella", "triangolo")
+CANVAS_KINDS = ("cerchio", "rettangolo", "linea", "testo", "razzo", "stella", "triangolo", "modello3d")
 _ARITHMETIC = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
                ast.Div: operator.truediv, ast.Pow: operator.pow, ast.Mod: operator.mod,
                ast.USub: operator.neg}
@@ -278,10 +280,12 @@ class LiveCanvas:
                            "annota", "mostra", "rappresenta", "fai")) or "crea un" in low:
             kind = next((name for name in CANVAS_KINDS
                          if name in low), None)
+            if "modello 3d" in low or "modello tridimensionale" in low:
+                kind = "modello3d"
             if any(word in low for word in ("scrivi", "scrivimi", "annota", "schema")):
                 kind = "testo"
             if not kind:
-                return "Posso creare cerchi, sfere, rettangoli, razzi, stelle, triangoli, linee e testo."
+                return "Posso creare cerchi, sfere, rettangoli, razzi, stelle, triangoli, modelli 3D, linee e testo."
             item_id = self._new_id()
             label = ""
             if kind == "testo":
@@ -452,6 +456,17 @@ class LiveCanvas:
                                     (x-width*.10, y-height*.05, width*.20, height*.16))
             elif item.kind == "linea":
                 pygame.draw.line(screen, color, (x, y), (x+width, y+height), max(2, int(3*self.zoom)))
+            elif item.kind == "modello3d":
+                # Wireframe cube: lightweight 3D preview with live rotation.
+                angle = time.monotonic() * .7
+                points = []
+                for px, py, pz in ((-1,-1,-1),(1,-1,-1),(1,1,-1),(-1,1,-1),(-1,-1,1),(1,-1,1),(1,1,1),(-1,1,1)):
+                    rx, rz = px*math.cos(angle)-pz*math.sin(angle), px*math.sin(angle)+pz*math.cos(angle)
+                    depth = 1.0 / max(.35, 2.8-rz)
+                    points.append((x + rx*width*.32*depth, y + py*height*.32*depth))
+                edges = ((0,1),(1,2),(2,3),(3,0),(4,5),(5,6),(6,7),(7,4),(0,4),(1,5),(2,6),(3,7))
+                for a,b in edges: pygame.draw.line(screen, color, points[a], points[b], max(1, int(2*self.zoom)))
+                width, height = width*1.15, height*1.15
             elif item.kind == "testo":
                 lines = (item.text or "Testo").splitlines() or ["Testo"]
                 rendered_lines = [fonts["normal"].render(line, True, color) for line in lines]
