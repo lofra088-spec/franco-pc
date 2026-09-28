@@ -9,6 +9,7 @@ import base64
 import json
 import os
 import secrets
+import socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Callable
@@ -61,6 +62,17 @@ class _Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self._authorized():
             return self._reply(401, {"error": "unauthorized"})
+        if self.path == "/wake":
+            mac = os.environ.get("FRANCO_WAKE_MAC", "").replace(":", "").replace("-", "")
+            if len(mac) != 12:
+                return self._reply(503, {"error": "Wake-on-LAN non configurato"})
+            try:
+                packet = bytes.fromhex("FF" * 6 + mac * 16)
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                sock.sendto(packet, ("255.255.255.255", 9)); sock.close()
+                return self._reply(200, {"ok": True, "result": "magic packet inviato"})
+            except Exception:
+                return self._reply(502, {"error": "invio Wake-on-LAN fallito"})
         if self.path != "/print":
             return self._reply(404, {"error": "not found"})
         try:
@@ -98,3 +110,12 @@ def print_file(path: str) -> str:
 def create_remote_server(token: str | None = None) -> RemoteAccessServer:
     return RemoteAccessServer(token or os.environ.get("FRANCO_REMOTE_TOKEN", ""))
 
+
+def run_remote_server():
+    server = RemoteAccessServer(os.environ.get("FRANCO_REMOTE_TOKEN", ""))
+    # Keep a predictable port for the iPhone VPN connection.
+    server.server_close()
+    server.server_address = (server.server_address[0], int(os.environ.get("FRANCO_REMOTE_PORT", "8765")))
+    server.server_bind(); server.server_activate()
+    print(f"Franco remote gateway: http://127.0.0.1:{server.server_port}", flush=True)
+    server.serve_forever()
