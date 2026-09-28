@@ -10,6 +10,8 @@ import json
 import os
 import secrets
 import socket
+import subprocess
+from urllib.parse import quote_plus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Callable
@@ -73,6 +75,18 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._reply(200, {"ok": True, "result": "magic packet inviato"})
             except Exception:
                 return self._reply(502, {"error": "invio Wake-on-LAN fallito"})
+        if self.path == "/action":
+            try:
+                size=int(self.headers.get("Content-Length","0")); data=json.loads(self.rfile.read(min(size,12000)))
+                action=str(data.get("action","")).lower(); query=str(data.get("query","")).strip()
+                if action not in {"chrome","spotify","search","translate"}: return self._reply(403,{"error":"azione non autorizzata"})
+                if action=="chrome": subprocess.Popen(["cmd","/c","start","","chrome"],shell=False)
+                elif action=="spotify": subprocess.Popen(["cmd","/c","start","","spotify"],shell=False)
+                else:
+                    url="https://www.google.com/search?q="+quote_plus(query) if action=="search" else "https://translate.google.com/?sl=auto&tl=it&text="+quote_plus(query)
+                    subprocess.Popen(["cmd","/c","start","",url],shell=False)
+                return self._reply(200,{"ok":True,"action":action})
+            except Exception: return self._reply(400,{"error":"azione non eseguita"})
         if self.path != "/print":
             return self._reply(404, {"error": "not found"})
         try:
