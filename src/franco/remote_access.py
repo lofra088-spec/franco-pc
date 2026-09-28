@@ -116,6 +116,7 @@ def run_remote_server():
     # Keep a predictable port for the iPhone VPN connection.
     server.server_close()
     server.server_address = (server.server_address[0], int(os.environ.get("FRANCO_REMOTE_PORT", "8765")))
+    server.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.server_bind(); server.server_activate()
     print(f"Franco remote gateway: http://127.0.0.1:{server.server_port}", flush=True)
     server.serve_forever()
