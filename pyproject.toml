@@ -15,9 +15,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-voice = ["SpeechRecognition", "pyaudio"]
+voice = ["SpeechRecognition", "pyaudio", "edge-tts"]
 ai = ["anthropic", "openai"]
-full = ["SpeechRecognition", "pyaudio", "anthropic", "openai", "requests", "cryptography"]
+full = ["SpeechRecognition", "pyaudio", "edge-tts", "anthropic", "openai", "requests", "cryptography"]
 dev = ["pytest", "ruff"]
 
 [project.scripts]
