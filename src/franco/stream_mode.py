@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import webbrowser
+import shutil
 from pathlib import Path
 
 STREAM_URLS = (
@@ -30,9 +31,17 @@ def _launch_candidates(candidates: list[str]) -> bool:
         path = Path(os.path.expandvars(candidate))
         try:
             if path.is_file():
-                subprocess.Popen([str(path)], close_fds=True)
+                # OBS risolve data/locale rispetto alla directory di lavoro.
+                # Avviarlo dalla cartella dell'eseguibile evita l'errore
+                # "failed to find locale/en-US.ini" quando Franco parte da
+                # una directory diversa.
+                kwargs = {"close_fds": True}
+                if path.name.lower() == "obs64.exe":
+                    kwargs["cwd"] = str(path.parent.parent.parent)
+                subprocess.Popen([str(path)], **kwargs)
                 return True
-            subprocess.Popen([candidate], close_fds=True)
+            resolved = shutil.which(candidate)
+            subprocess.Popen([resolved or candidate], close_fds=True)
             return True
         except (OSError, FileNotFoundError):
             continue
