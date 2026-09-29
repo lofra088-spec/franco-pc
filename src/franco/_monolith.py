@@ -7780,7 +7780,9 @@ class VoiceSynthesizer:
         self._mixer_initialized = False
         # XTTS locale è la voce predefinita; il supervisore la prepara in
         # background e la riavvia se Python/Torch vengono terminati.
-        self._current_voice = "xtts"
+        # Diego/Edge-TTS è il fallback affidabile su Windows; XTTS resta
+        # selezionabile manualmente quando il runtime DLL è compatibile.
+        self._current_voice = os.environ.get("FRANCO_DEFAULT_VOICE", "diego")
         self._openai_client = None
         self._session_start = time.time()
         self._lock = threading.Lock()
@@ -18920,9 +18922,9 @@ def parse_args():
     parser.add_argument("--theme", type=str, default="nexus",
                         choices=list(THEMES.keys()),
                         help="Tema UI (default: nexus)")
-    parser.add_argument("--voice", type=str, default="xtts",
+    parser.add_argument("--voice", type=str, default="diego",
                         choices=list(TTS_VOICES.keys()),
-                        help="Voce TTS (default: XTTS locale; fallback Diego)")
+                        help="Voce TTS (default: Diego Edge-TTS; XTTS opzionale)")
     parser.add_argument("--api-key", type=str, default="",
                         help="Chiave API Anthropic Claude (sovrascrive variabile ambiente)")
     return parser.parse_args()
