@@ -37,7 +37,8 @@ def _launch_candidates(candidates: list[str]) -> bool:
                 # una directory diversa.
                 kwargs = {"close_fds": True}
                 if path.name.lower() == "obs64.exe":
-                    kwargs["cwd"] = str(path.parent.parent.parent)
+                    # OBS cerca temi e locale dalla directory binaria.
+                    kwargs["cwd"] = str(path.parent)
                 subprocess.Popen([str(path)], **kwargs)
                 return True
             resolved = shutil.which(candidate)
