@@ -18612,12 +18612,20 @@ class FrancoCore:
                 # ── EVIDENZA COMANDO VOCALE ──
                 self._highlight_voice_command(cmd)
 
-                canvas_response = self.ui._canvas.apply_command(cmd)
-                if canvas_response is not None:
+                stream_response = None
+                if cmd.lower().strip() in {"avvia modalità stream", "avvia modalita stream", "modalità stream", "modalita stream"}:
+                    from .stream_mode import launch_stream_workspace
+                    stream_response = launch_stream_workspace()
+                canvas_response = self.ui._canvas.apply_command(cmd) if stream_response is None else None
+                if stream_response is not None:
+                    response = stream_response
+                elif canvas_response is not None:
                     self.ui._active_section = "canvas"
                 code_response = self._handle_franco_code_command(cmd) if canvas_response is None else None
                 spotify_response = self.spotify.handle(cmd) if code_response is None and canvas_response is None else None
-                if canvas_response is not None:
+                if stream_response is not None:
+                    response = stream_response
+                elif canvas_response is not None:
                     response = canvas_response
                 elif code_response is not None:
                     response = code_response

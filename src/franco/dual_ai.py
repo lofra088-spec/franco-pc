@@ -37,10 +37,9 @@ from typing import Any, Dict, List, Optional, Tuple
 OPENROUTER_BASE = "https://openrouter.ai/api/v1/chat/completions"
 
 # Modello di default — cambia qui o con la variabile OPENROUTER_MODEL
-DEFAULT_OR_MODEL = os.environ.get(
-    "OPENROUTER_MODEL",
-    "google/gemini-2.5-flash"   # endpoint stabile OpenRouter
-)
+_configured_model = os.environ.get("OPENROUTER_MODEL", "").strip()
+DEFAULT_OR_MODEL = (_configured_model if _configured_model and not _configured_model.startswith("nvidia/")
+                    else "google/gemini-2.5-flash")
 
 # Modelli consigliati per diversi use-case (usabili con set_model())
 OPENROUTER_MODELS = {
