@@ -39,7 +39,7 @@ OPENROUTER_BASE = "https://openrouter.ai/api/v1/chat/completions"
 # Modello di default — cambia qui o con la variabile OPENROUTER_MODEL
 DEFAULT_OR_MODEL = os.environ.get(
     "OPENROUTER_MODEL",
-    "nvidia/nemotron-3-ultra-550b-a55b:free"   # ottimo rapporto qualità/costo
+    "google/gemini-2.5-flash"   # endpoint stabile OpenRouter
 )
 
 # Modelli consigliati per diversi use-case (usabili con set_model())
