@@ -18629,15 +18629,26 @@ class FrancoCore:
                 if cmd.lower().strip() in {"avvia modalità stream", "avvia modalita stream", "modalità stream", "modalita stream"}:
                     from .stream_mode import launch_stream_workspace
                     stream_response = launch_stream_workspace()
-                canvas_response = self.ui._canvas.apply_command(cmd) if stream_response is None else None
+                # Automazioni vocali: prima della NLP generica, così una frase
+                # registrata dall'utente può aprire l'app richiesta senza
+                # essere interpretata come una domanda all'LLM.
+                automation_response = None
+                if stream_response is None:
+                    _auto = getattr(self, "auto", None)
+                    automation_response = getattr(_auto, "handle_voice_command", lambda _x: None)(cmd)
+                canvas_response = self.ui._canvas.apply_command(cmd) if stream_response is None and automation_response is None else None
                 if stream_response is not None:
                     response = stream_response
+                elif automation_response is not None:
+                    response = automation_response
                 elif canvas_response is not None:
                     self.ui._active_section = "canvas"
                 code_response = self._handle_franco_code_command(cmd) if canvas_response is None else None
                 spotify_response = self.spotify.handle(cmd) if code_response is None and canvas_response is None else None
                 if stream_response is not None:
                     response = stream_response
+                elif automation_response is not None:
+                    response = automation_response
                 elif canvas_response is not None:
                     response = canvas_response
                 elif code_response is not None:
