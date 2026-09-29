@@ -11629,7 +11629,22 @@ class CommandEngine:
         if not app_name:
             return "Quale applicazione devo aprire?"
 
-        matched = self.nlp.fuzzy_match_app(app_name)
+        # Alcune installazioni legacy forniscono un FrancoNLP ridotto senza
+        # fuzzy_match_app. Mantieni l'avvio applicazioni funzionante usando il
+        # catalogo locale anche quando quel modulo esterno è presente.
+        matcher = getattr(self.nlp, "fuzzy_match_app", None)
+        if callable(matcher):
+            matched = matcher(app_name)
+        else:
+            query = app_name.lower().strip()
+            candidates = []
+            for key, info in APP_DATABASE.items():
+                names = [key, *info.get("aliases", [])]
+                score = max(difflib.SequenceMatcher(None, query, n.lower()).ratio() for n in names)
+                if query in key or any(query in n.lower() for n in names):
+                    score = max(score, .85)
+                candidates.append((score, key))
+            matched = max(candidates)[1] if candidates and max(candidates)[0] >= .6 else None
         if matched:
             app_info = APP_DATABASE[matched]
             cmd = app_info["cmd"]
