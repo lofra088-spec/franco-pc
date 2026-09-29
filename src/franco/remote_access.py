@@ -79,6 +79,9 @@ class _Handler(BaseHTTPRequestHandler):
             try:
                 size=int(self.headers.get("Content-Length","0")); data=json.loads(self.rfile.read(min(size,12000)))
                 action=str(data.get("action","")).lower(); query=str(data.get("query","")).strip()
+                if action == "stream":
+                    from .stream_mode import launch_stream_workspace
+                    return self._reply(200,{"ok":True,"action":action,"message":launch_stream_workspace()})
                 if action not in {"chrome","spotify","search","translate"}: return self._reply(403,{"error":"azione non autorizzata"})
                 if action=="chrome": subprocess.Popen(["cmd","/c","start","","chrome"],shell=False)
                 elif action=="spotify": subprocess.Popen(["cmd","/c","start","","spotify"],shell=False)
