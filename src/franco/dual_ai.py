@@ -68,7 +68,7 @@ OPENROUTER_MODELS = {
 }
 
 # Timeout e retry
-_DEFAULT_TIMEOUT  = 60   # secondi
+_DEFAULT_TIMEOUT  = 120  # secondi; evita timeout durante il primo avvio del modello remoto
 _DEFAULT_MAX_RETRY = 3
 _RETRY_BACKOFF     = 1.5
 

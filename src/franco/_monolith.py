@@ -18312,7 +18312,7 @@ class FrancoCore:
                 self.franco_code.snapshot().get("goal", ""), step, stop))
         from .turn_lifecycle import TurnLifecycle
         self.turn_lifecycle = TurnLifecycle(self._on_turn_timeout,
-            timeout=float(os.environ.get("FRANCO_TURN_TIMEOUT", "45")))
+            timeout=float(os.environ.get("FRANCO_TURN_TIMEOUT", "180")))
 
         # Disk Cleaner (Jarvis-style)
         self.disk_cleaner = DiskCleaner(self.logger)

@@ -16,7 +16,7 @@ def openai_compatible_provider(url, api_key, model, extra_headers=None):
             "temperature": temperature,
         }).encode(), headers={"Authorization": f"Bearer {api_key}",
                               "Content-Type": "application/json", **(extra_headers or {})})
-        with urllib.request.urlopen(request, timeout=35) as response:
+        with urllib.request.urlopen(request, timeout=float(os.environ.get("FRANCO_AI_TIMEOUT", "120"))) as response:
             data = json.load(response)
         message = data["choices"][0]["message"]
         # Some OpenRouter routes put the usable text in reasoning/refusal while
