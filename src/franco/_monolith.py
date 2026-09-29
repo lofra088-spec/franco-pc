@@ -18799,11 +18799,7 @@ class FrancoCore:
             )
             text_thread.start()
 
-        # Saluto iniziale
-        greeting_thread = threading.Thread(
-            target=self.startup_greeting, daemon=True
-        )
-        greeting_thread.start()
+        # Avvio silenzioso: Franco resta pronto e risponde al primo comando.
 
         # UI (blocking se pygame disponibile)
         if use_ui and DEPENDENCIES_STATUS.get('pygame'):
@@ -19055,16 +19051,7 @@ def main():
         threading.Thread(target=_trading_panel_updater, daemon=True,
                          name="TradingPanelUpdater").start()
 
-        # Briefing automatico all'avvio (dopo 3 secondi per lasciare che tutto si inizializzi)
-        def _startup_brief():
-            time.sleep(3)
-            try:
-                brief = franco.engine._cmd_daily_brief()
-                if brief:
-                    franco.tts.speak(brief)
-            except Exception as _e:
-                pass  # suppressed error
-        threading.Thread(target=_startup_brief, daemon=True, name="StartupBrief").start()
+        # Nessun briefing automatico: l'utente lo richiede solo con il comando vocale.
 
         # ── Monitor Jarvis: proactive watcher ogni 60s ──────────────────────────
         def _jarvis_watcher():
