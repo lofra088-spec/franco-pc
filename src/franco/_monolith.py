@@ -11650,6 +11650,14 @@ class CommandEngine:
         if matched:
             app_info = APP_DATABASE[matched]
             cmd = app_info["cmd"]
+            if matched == "obs studio":
+                from .stream_mode import _launch_candidates
+                if _launch_candidates([r"%ProgramFiles%\obs-studio\bin\64bit\obs64.exe", "obs64.exe"]):
+                    return "Avvio OBS Studio."
+            if matched == "discord":
+                from .stream_mode import _launch_candidates
+                if _launch_candidates([r"%LocalAppData%\Discord\Update.exe", "discord.exe"]):
+                    return "Avvio Discord."
             try:
                 if IS_WINDOWS:
                     os.startfile(cmd) if not cmd.endswith(".msc") else run_command(f"mmc {cmd}")
