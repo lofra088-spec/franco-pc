@@ -18921,6 +18921,12 @@ def main():
     # Avvia FRANCO
     try:
         franco = FrancoCore()
+        if os.environ.get("FRANCO_AUTO_STREAM", "0").lower() in {"1", "true", "yes", "on"}:
+            try:
+                from .stream_mode import launch_stream_workspace
+                franco.logger.info("STREAM", launch_stream_workspace())
+            except Exception as exc:
+                franco.logger.warning("STREAM", f"Avvio automatico Stream non riuscito: {exc}")
         from franco_trading import TradingModule, patch_trading
         franco.trading = TradingModule(franco.logger, franco.state, franco.db,
                                        franco.event_bus, franco.memory, franco.tts)
