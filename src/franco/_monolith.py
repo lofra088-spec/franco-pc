@@ -7794,7 +7794,11 @@ class VoiceSynthesizer:
         self._xtts = XTTSService(self.state, self.logger)
 
         self._init_mixer()
-        self._xtts.start_supervisor()
+        # Non bloccare l'avvio caricando un modello vocale pesante. XTTS viene
+        # avviato al primo messaggio parlato; impostare FRANCO_XTTS_AUTOSTART=1
+        # solo se si preferisce il preload.
+        if os.environ.get("FRANCO_XTTS_AUTOSTART", "0").lower() in {"1", "true", "yes", "on"}:
+            self._xtts.start_supervisor()
     
     def _init_mixer(self):
         """Initialize pygame mixer"""
