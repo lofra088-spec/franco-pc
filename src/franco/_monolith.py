@@ -18623,6 +18623,9 @@ class FrancoCore:
                 self._highlight_voice_command(cmd)
 
                 stream_response = None
+                if any(k in cmd.lower() for k in ("ps5 camera", "ps5 telecamera", "apri telecamera")):
+                    from .stream_mode import launch_ps5_camera
+                    stream_response = launch_ps5_camera()
                 if cmd.lower().strip() in {"avvia modalità stream", "avvia modalita stream", "modalità stream", "modalita stream"}:
                     from .stream_mode import launch_stream_workspace
                     stream_response = launch_stream_workspace()

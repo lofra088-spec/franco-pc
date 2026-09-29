@@ -10,6 +10,18 @@ STREAM_URLS = (
     "https://www.google.com/",
 )
 
+def launch_ps5_camera() -> str:
+    """Open the Windows camera app and OBS for an attached PS5 capture device."""
+    opened = []
+    try:
+        os.startfile("microsoft.windows.camera:")
+        opened.append("Camera")
+    except OSError:
+        pass
+    if _launch_candidates([r"%ProgramFiles%\obs-studio\bin\64bit\obs64.exe", "obs64.exe"]):
+        opened.append("OBS")
+    return "PS5 camera pronta: " + (", ".join(opened) if opened else "nessuna app trovata") + "."
+
 def _launch_candidates(candidates: list[str]) -> bool:
     for candidate in candidates:
         path = Path(os.path.expandvars(candidate))
