@@ -13,6 +13,9 @@ STREAM_URLS = (
 def launch_ps5_camera() -> str:
     """Open the Windows camera app and OBS for an attached PS5 capture device."""
     opened = []
+    driver = os.environ.get("FRANCO_PS5_CAMERA_DRIVER", r"%USERPROFILE%\Downloads\PS5_camera_files-main\PS5_camera_files-main\OrbisEyeCameraFirmwareLoader.exe")
+    if _launch_candidates([driver]):
+        opened.append("driver Orbis Eye")
     try:
         os.startfile("microsoft.windows.camera:")
         opened.append("Camera")
