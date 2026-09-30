@@ -55,6 +55,8 @@ OPENROUTER_MODELS = {
     "deepseek-v3":       "deepseek/deepseek-chat-v3.1:free",
     "qwen-235b":         "qwen/qwen3-235b-a22b:free",
     "qwen-30b":          "qwen/qwen3-30b-a3b:free",
+    "kimi-k2":           "moonshotai/kimi-k2",
+    "kimi":              "moonshotai/kimi-k2",
     # ── A pagamento (alta qualità) ───────────────────────────────────────
     "gpt-4o":            "openai/gpt-4o",
     "gpt-4o-mini":       "openai/gpt-4o-mini",
@@ -884,6 +886,11 @@ STORICO RECENTE:
         if any(k in t for k in ["usa openrouter", "attiva openrouter", "passa a openrouter"]):
             router.prefer_openrouter()
             return "Passato a OpenRouter come provider principale."
+
+        if any(k in t for k in ["usa kimi", "attiva kimi", "passa a kimi", "usa kimi k2"]):
+            router.prefer_openrouter()
+            router.set_model("kimi-k2")
+            return "Kimi K2 impostato come modello OpenRouter principale."
 
         if any(k in t for k in ["usa claude", "attiva claude", "passa a claude",
                                   "usa anthropic", "attiva anthropic"]):
