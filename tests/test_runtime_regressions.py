@@ -172,7 +172,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(report["summary"]["error"], 0)
         self.assertGreater(len(report["checks"]), 10)
         result = subprocess.run([sys.executable, str(ROOT.parent / "avvia_franco.py"), "--version"], env=env, check=True, capture_output=True, text=True, timeout=10)
-        self.assertEqual(result.stdout.strip(), "FRANCO 6.0.0 NEXUS")
+        self.assertEqual(result.stdout.strip(), "FRANCO 7.0.0 NEXUS")
 
 
 if __name__ == "__main__":

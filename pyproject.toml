@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "franco"
-version = "6.0.0"
-description = "F.R.A.N.C.O. 6.0 NEXUS — Full Responsive Autonomous Neural Control Operator"
+version = "7.0.0"
+description = "F.R.A.N.C.O. 7 — fast local actions with AI fallback"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Proprietary" }

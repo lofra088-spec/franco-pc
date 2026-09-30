@@ -95,7 +95,7 @@ if _os.path.isdir(_LEGACY_HOME) and _LEGACY_HOME not in _sys.path:
 # ==============================================================================
 # METADATA
 # ==============================================================================
-__version__ = "6.0.0"
+__version__ = "7.0.0"
 __codename__ = "NEXUS"
 __author__ = "FRANCO AI Systems"
 __license__ = "Proprietary"
@@ -18396,7 +18396,7 @@ class FrancoCore:
         # Registra event handlers
         self._register_events()
 
-        self.logger.success("CORE", "F.R.A.N.C.O. 6.0 NEXUS inizializzato")
+        self.logger.success("CORE", "F.R.A.N.C.O. 7 NEXUS inizializzato")
 
     def _register_events(self):
         """Register system event handlers"""
@@ -18572,6 +18572,73 @@ class FrancoCore:
         return ("Obiettivo fissato. Franco Code lavorerà in background e ti parlerà "
                 "solo quando c'è un aggiornamento utile, un risultato o serve una decisione.")
 
+    def _handle_fast_command(self, command: str):
+        """Esegue i comandi quotidiani senza passare da Canvas, Spotify o LLM.
+
+        Ritorna ``None`` soltanto quando il comando richiede davvero il router
+        generale. Le azioni riconosciute terminano qui, così la latenza resta
+        nell'ordine di pochi millisecondi oltre all'avvio dell'app/browser.
+        """
+        raw = re.sub(r"\s+", " ", (command or "")).strip()
+        low = raw.lower()
+        if not raw:
+            return "Non ho ricevuto alcun comando."
+
+        # Ricerca web: comprende formulazioni naturali e comuni errori ASR.
+        search_patterns = (
+            r"^(?:cerca|cercami|trova|trovami)\s+(?:su\s+google\s+|online\s+|sul\s+web\s+)?(.+)$",
+            r"^(?:googla|google)\s+(.+)$",
+        )
+        for pattern in search_patterns:
+            match = re.match(pattern, raw, flags=re.IGNORECASE)
+            if match:
+                query = match.group(1).strip()
+                # Non intercettare ricerche locali di file/app.
+                if not re.match(r"^(?:file|cartella|app|applicazione)\b", query, re.I):
+                    return self.engine._cmd_search_web(query)
+
+        # Apertura applicazioni: nessuna chiamata al modello linguistico.
+        open_match = re.match(
+            r"^(?:apri|avvia|lancia)\s+(?:l['’]app(?:licazione)?\s+|il\s+programma\s+)?(.+)$",
+            raw, flags=re.IGNORECASE,
+        )
+        if open_match and "modalit" not in low and "automazione" not in low:
+            target = open_match.group(1).strip(" .")
+            return self.engine._cmd_open_app(target)
+
+        # Salvataggio immediato di testo sul Desktop.
+        save_match = re.match(
+            r"^(?:salva|scrivi|crea)\s+(?:un\s+file\s+)?sul\s+desktop\s*[:,-]?\s*(.+)$",
+            raw, flags=re.IGNORECASE | re.DOTALL,
+        )
+        if save_match:
+            content = save_match.group(1).strip()
+            desktop = Path.home() / "OneDrive" / "Desktop"
+            if not desktop.is_dir():
+                desktop = Path.home() / "Desktop"
+            try:
+                desktop.mkdir(parents=True, exist_ok=True)
+                path = desktop / f"Franco_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                path.write_text(content, encoding="utf-8")
+                return f"File salvato sul Desktop: {path.name}."
+            except OSError as error:
+                return f"Non sono riuscito a salvare sul Desktop: {error}."
+
+        # Generazione codice: salta tutti i wrapper conversazionali.
+        code_match = re.match(
+            r"^(?:scrivi|genera|crea)\s+(?:del\s+|un\s+)?(?:codice|script|programma)\s*(.*)$",
+            raw, flags=re.IGNORECASE | re.DOTALL,
+        )
+        if code_match:
+            description = code_match.group(1).strip(" :-")
+            if not description:
+                return "Dimmi cosa deve fare il codice."
+            lang_match = re.search(r"\bin\s+(python|javascript|java|c\+\+|bash|sql|html|css)\b", low)
+            language = lang_match.group(1) if lang_match else "python"
+            return self.engine._cmd_generate_code(description, language)
+
+        return None
+
     def _command_loop(self):
         """Process commands from voice/text queue"""
         self.logger.info("CORE", "Command loop avviato")
@@ -18622,30 +18689,38 @@ class FrancoCore:
                 # ── EVIDENZA COMANDO VOCALE ──
                 self._highlight_voice_command(cmd)
 
+                # Primo livello: azioni locali quotidiane. Se riconosciute,
+                # non attraversano Canvas, Spotify, wrapper o provider AI.
+                fast_response = self._handle_fast_command(cmd)
+
                 stream_response = None
-                if any(k in cmd.lower() for k in ("ps5 camera", "ps5 telecamera", "apri telecamera")):
+                if fast_response is None and any(k in cmd.lower() for k in ("ps5 camera", "ps5 telecamera", "apri telecamera")):
                     from .stream_mode import launch_ps5_camera
                     stream_response = launch_ps5_camera()
-                if cmd.lower().strip() in {"avvia modalità stream", "avvia modalita stream", "modalità stream", "modalita stream"}:
+                if fast_response is None and cmd.lower().strip() in {"avvia modalità stream", "avvia modalita stream", "modalità stream", "modalita stream"}:
                     from .stream_mode import launch_stream_workspace
                     stream_response = launch_stream_workspace()
                 # Automazioni vocali: prima della NLP generica, così una frase
                 # registrata dall'utente può aprire l'app richiesta senza
                 # essere interpretata come una domanda all'LLM.
                 automation_response = None
-                if stream_response is None:
+                if fast_response is None and stream_response is None:
                     _auto = getattr(self, "auto", None)
                     automation_response = getattr(_auto, "handle_voice_command", lambda _x: None)(cmd)
-                canvas_response = self.ui._canvas.apply_command(cmd) if stream_response is None and automation_response is None else None
-                if stream_response is not None:
+                canvas_response = self.ui._canvas.apply_command(cmd) if fast_response is None and stream_response is None and automation_response is None else None
+                if fast_response is not None:
+                    response = fast_response
+                elif stream_response is not None:
                     response = stream_response
                 elif automation_response is not None:
                     response = automation_response
                 elif canvas_response is not None:
                     self.ui._active_section = "canvas"
-                code_response = self._handle_franco_code_command(cmd) if canvas_response is None else None
-                spotify_response = self.spotify.handle(cmd) if code_response is None and canvas_response is None else None
-                if stream_response is not None:
+                code_response = self._handle_franco_code_command(cmd) if fast_response is None and canvas_response is None else None
+                spotify_response = self.spotify.handle(cmd) if fast_response is None and code_response is None and canvas_response is None else None
+                if fast_response is not None:
+                    response = fast_response
+                elif stream_response is not None:
                     response = stream_response
                 elif automation_response is not None:
                     response = automation_response
@@ -18800,7 +18875,7 @@ class FrancoCore:
         Main entry point.
         Avvia tutti i thread e l'UI principale.
         """
-        self.logger.info("CORE", "Avvio FRANCO 6.0 NEXUS...")
+        self.logger.info("CORE", "Avvio FRANCO 7 NEXUS...")
         self.state.set("running", True)
         self.state.set("system_state", SystemState.IDLE)
         self.state.set("initialized", True)
@@ -18931,7 +19006,7 @@ class FrancoCore:
 def parse_args():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="F.R.A.N.C.O. 6.0 NEXUS — Full Responsive Autonomous Neural Control Operator"
+        description="F.R.A.N.C.O. 7 NEXUS — fast local actions with AI fallback"
     )
     parser.add_argument("--no-voice", action="store_true",
                         help="Disabilita riconoscimento vocale (modalità testo)")
