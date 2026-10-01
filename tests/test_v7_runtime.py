@@ -80,3 +80,18 @@ def test_v7_cli_starts_without_importing_monolith():
         check=True, env=env, capture_output=True, text=True,
     )
     assert "azione in attesa" in result.stdout
+
+
+def test_franco_map_is_a_direct_local_action():
+    brain = BrainStub()
+    actions = ActionRegistry()
+    calls = []
+    actions.register("world_map", lambda: calls.append(True) or "Mappa aperta")
+    runtime = FrancoRuntime(brain, actions)
+
+    reply = runtime.submit_final("Franco mappa")
+
+    assert reply.text == "Mappa aperta"
+    assert reply.executed is True
+    assert calls == [True]
+    assert brain.calls == []

@@ -80,6 +80,11 @@ class WindowsActions:
         webbrowser.open("https://www.google.com/search?q=" + urllib.parse.quote_plus(query))
         return f"Cerco {query}."
 
+    @staticmethod
+    def world_map() -> str:
+        webbrowser.open("https://argosatlas.com/")
+        return "Apro Franco Mappa con la vista mondiale in tempo reale."
+
 
 def build_runtime():
     from .actions import ActionRegistry
@@ -89,4 +94,5 @@ def build_runtime():
     actions = ActionRegistry()
     actions.register("open_app", local.open_app)
     actions.register("web_search", local.web_search)
+    actions.register("world_map", local.world_map)
     return FrancoRuntime(OpenRouterBrain(), actions)

@@ -29,6 +29,11 @@ class IntentParser:
         clean = normalize(text)
         if not clean:
             return Intent("empty", confidence=1.0)
+        if clean.casefold().strip(" ,.!?") in {
+            "franco mappa", "apri franco mappa", "apri la mappa",
+            "mostra la mappa del mondo", "mappa mondiale",
+        }:
+            return Intent("world_map", confidence=1.0)
         match = self._DESKTOP.match(clean)
         if match:
             return Intent("desktop_goal", {"goal": match.group(1).strip()}, .98)
@@ -44,4 +49,3 @@ class IntentParser:
         if lowered in {"annulla", "stop", "fermati", "annulla azione"}:
             return Intent("cancel", confidence=1.0)
         return Intent("conversation", {"text": clean}, .75)
-
