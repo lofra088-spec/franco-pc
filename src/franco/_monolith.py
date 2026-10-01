@@ -7332,7 +7332,7 @@ class ClaudeAIClient:
             recent_notes = notes[-3:]
             notes_str = "Note recenti: " + " | ".join(n["testo"] for n in recent_notes)
         
-        system_prompt = f"""Sei FRANCO 6.0 NEXUS, assistente AI di nuova generazione \
+        system_prompt = f"""Sei FRANCO 7 NEXUS, assistente AI di nuova generazione \
 ispirato a JARVIS. Sei preciso, elegante, professionale, sottilmente ironico. \
 Parli SEMPRE in italiano. Non usi emoticon né markdown nelle risposte vocali. \
 Rispondi come un maggiordomo di altissimo livello con conoscenza tecnica assoluta. \
@@ -7346,7 +7346,7 @@ Mood rilevato: {mood}
 STORICO RECENTE:
 {history_str}
 
-CAPACITÀ FRANCO 6.0:
+CAPACITÀ FRANCO 7:
 - Cybersecurity: port scan, SSL analysis, password check, hash crack, vulnerability scan
 - Controllo OS completo (file, app, automazione)
 - Visione computer (analisi schermo)
@@ -8462,7 +8462,10 @@ class VoiceRecognizer:
                     speech_buffer = raw
                 else:
                     speech_buffer += raw
-                if now - self._last_partial_at >= 1.4 and len(speech_buffer) >= self.RATE * 2:
+                # Aggiorna l'ipotesi durante la frase. 650 ms mantiene il
+                # riconoscimento reattivo senza avviare richieste sovrapposte.
+                partial_interval = float(os.environ.get("FRANCO_PARTIAL_INTERVAL", "0.65"))
+                if now - self._last_partial_at >= max(0.45, partial_interval) and len(speech_buffer) >= self.RATE:
                     self._schedule_partial(speech_buffer)
                 last_voice_t = now
                 self.state.set("voice_capture", {"active": True, "status": "listening",
@@ -9242,7 +9245,7 @@ _MOBILE_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>FRANCO 6.0 NEXUS</title>
+<title>FRANCO 7 NEXUS</title>
 <style>
   :root{--primary:#00c8ff;--accent:#00ffc8;--bg:#02060e;--panel:#08121f;
     --border:#005080;--text:#dce8ff;--dim:#506070;--danger:#ff3c3c;--warn:#ffb400;--ok:#00ff64}
@@ -9991,6 +9994,13 @@ class CommandEngine:
         self._game_stop_event: Optional[threading.Event] = None
         self._game_name: Optional[str] = None
 
+        # Franco Code Computer Use: obiettivo visuale limitato, arrestabile e
+        # con conferma puntuale per azioni esterne o distruttive.
+        self._desktop_thread: Optional[threading.Thread] = None
+        self._desktop_stop_event: Optional[threading.Event] = None
+        self._desktop_confirm_event = threading.Event()
+        self._desktop_pending_action: Optional[Dict[str, Any]] = None
+
         # Controllo remoto dispositivi (lazy: costruito al primo comando)
         self._rdc: Optional["RemoteDeviceController"] = None
 
@@ -10094,7 +10104,7 @@ class CommandEngine:
             ),
             ("chi sei", "presentati", "che sei", "descriviti"): lambda: (
                 "Sono F.R.A.N.C.O., Full Responsive Autonomous Neural Control Operator, "
-                "versione 6.0 NEXUS. Il suo assistente personale Jarvis-style. "
+                "versione 7 NEXUS. Il suo assistente personale Jarvis-style. "
                 "Posso gestire il suo PC, monitorare i mercati, scrivere codice, "
                 "proteggere il sistema e molto altro."
             ),
@@ -10112,6 +10122,9 @@ class CommandEngine:
              "basta migliorarti", "smetti di migliorarti",
              "ferma il self improve", "franco fermati di scrivere codice"):
                 lambda: self._cmd_stop_self_improve(),
+            ("conferma miglioramento", "confermo miglioramento",
+             "conferma auto miglioramento", "confermo auto miglioramento"):
+                lambda: self._cmd_confirm_self_improve(),
             ("usa il cervello cloud", "usa il cervello openrouter", "usa openrouter",
              "passa al cloud", "usa la ai cloud", "torna al cloud"):
                 lambda: self._cmd_switch_brain("openrouter"),
@@ -12156,6 +12169,144 @@ class CommandEngine:
         self._game_thread.join(timeout=5)
         return f"Smetto di giocare a {name}."
 
+    _DESKTOP_MAX_STEPS = 30
+    _DESKTOP_MAX_SECONDS = 10 * 60
+
+    def _cmd_desktop_goal(self, goal: str) -> str:
+        """Avvia un obiettivo visuale sul desktop tramite screenshot e input."""
+        goal = (goal or "").strip()
+        if not goal:
+            return "Dimmi quale obiettivo devo completare sul computer."
+        if not self.vision.input_available():
+            return "Computer Use non è disponibile: manca il controllo di mouse e tastiera."
+        if self._desktop_thread and self._desktop_thread.is_alive():
+            return "Computer Use sta già lavorando. Di' 'ferma computer use' per interromperlo."
+        stop = threading.Event()
+        self._desktop_stop_event = stop
+        self._desktop_confirm_event.clear()
+        self._desktop_pending_action = None
+        self._desktop_thread = threading.Thread(
+            target=self._desktop_goal_loop, args=(goal, stop), daemon=True,
+            name="FrancoDesktopAgent",
+        )
+        self._desktop_thread.start()
+        return (f"Computer Use ha preso l'obiettivo: {goal}. Osserverà il risultato "
+                "dopo ogni azione e chiederà conferma per operazioni sensibili.")
+
+    def _cmd_stop_desktop_goal(self) -> str:
+        if self._desktop_stop_event:
+            self._desktop_stop_event.set()
+            self._desktop_confirm_event.set()
+        return "Computer Use si sta fermando."
+
+    def _cmd_confirm_desktop_action(self) -> str:
+        if not self._desktop_pending_action:
+            return "Computer Use non ha azioni in attesa di conferma."
+        self._desktop_confirm_event.set()
+        return "Conferma ricevuta. Computer Use riprende dall'azione mostrata."
+
+    def _execute_desktop_action(self, data: Dict[str, Any]) -> Optional[str]:
+        action = str(data.get("action", "attendi")).lower()
+        if action == "click":
+            return self.vision.click_at(data.get("x", 0), data.get("y", 0))
+        if action in ("doppio_click", "double_click"):
+            return self.vision.click_at(data.get("x", 0), data.get("y", 0), clicks=2)
+        if action in ("tasto", "key"):
+            key = str(data.get("key", ""))
+            return self.vision.press_key(key) if key else "tasto mancante"
+        if action in ("scrivi", "type"):
+            value = str(data.get("testo", ""))
+            return self.vision.type_text(value) if value else "testo mancante"
+        if action == "attendi":
+            return None
+        return f"azione non consentita: {action}"
+
+    def _desktop_goal_loop(self, goal: str, stop_event: threading.Event):
+        width, height = self.vision.screen_size()
+        router = getattr(self, "_router", None)
+        started = time.time()
+        system = (
+            "Sei il controller visuale di Franco Code su un PC Windows autorizzato. "
+            "Osserva lo screenshot, scegli UNA sola azione e poi lascia che il sistema "
+            "verifichi il nuovo schermo. Non usare terminali, PowerShell, prompt dei comandi, "
+            "finestre di autenticazione o impostazioni di sicurezza. Per inviare messaggi, "
+            "pubblicare, comprare, cancellare dati, caricare file, avviare live o confermare "
+            "operazioni esterne usa action=conferma. Rispondi solo JSON: "
+            '{"action":"click","x":1,"y":1,"reason":"..."}, '
+            '{"action":"doppio_click","x":1,"y":1,"reason":"..."}, '
+            '{"action":"tasto","key":"ctrl+l","reason":"..."}, '
+            '{"action":"scrivi","testo":"...","reason":"..."}, '
+            '{"action":"attendi","reason":"..."}, '
+            '{"action":"conferma","reason":"azione precisa da autorizzare",'
+            '"next_action":{"action":"click","x":1,"y":1}}, oppure '
+            '{"action":"fine","reason":"obiettivo verificato o impossibile"}. '
+            f"Schermo {width}x{height}."
+        )
+        outcome = "Computer Use ha terminato."
+        for step in range(1, self._DESKTOP_MAX_STEPS + 1):
+            if stop_event.is_set() or time.time() - started > self._DESKTOP_MAX_SECONDS:
+                outcome = "Computer Use è stato fermato."
+                break
+            image, error = self.vision.capture_base64()
+            if error:
+                outcome = f"Computer Use non riesce a leggere lo schermo: {error}"
+                break
+            try:
+                client = router if router and hasattr(router, "chat_with_image") else self.ai
+                response = client.chat_with_image(
+                    f"Obiettivo: {goal}\nPasso {step}. Decidi la prossima azione.",
+                    image, system=system, max_tokens=260,
+                )
+                match = re.search(r"\{.*\}", response or "", re.DOTALL)
+                data = json.loads(match.group()) if match else None
+            except Exception as error:
+                outcome = f"Computer Use non riesce a pianificare il passo: {error}"
+                break
+            if not isinstance(data, dict):
+                outcome = "Computer Use ha ricevuto un piano non valido."
+                break
+            action = str(data.get("action", "attendi")).lower()
+            reason = str(data.get("reason", "")).strip()
+            self.logger.info("DESKTOP", f"[{step}] {action} — {reason}")
+            if action in ("fine", "done", "stop"):
+                outcome = reason or "Obiettivo completato."
+                break
+            if action in ("conferma", "confirm"):
+                self._desktop_pending_action = data
+                self._desktop_confirm_event.clear()
+                try:
+                    self.tts.speak(f"Serve conferma: {reason}", blocking=False)
+                except Exception:
+                    pass
+                if not self._desktop_confirm_event.wait(120) or stop_event.is_set():
+                    outcome = "Computer Use si è fermato perché la conferma non è arrivata."
+                    break
+                confirmed = data.get("next_action")
+                self._desktop_pending_action = None
+                if not isinstance(confirmed, dict):
+                    outcome = "Computer Use non ha indicato un'azione confermabile valida."
+                    break
+                error = self._execute_desktop_action(confirmed)
+                if error:
+                    outcome = f"Computer Use si è fermato: {error}"
+                    break
+                continue
+            error = self._execute_desktop_action(data)
+            if error:
+                outcome = f"Computer Use si è fermato: {error}"
+                break
+            if stop_event.wait(0.8):
+                outcome = "Computer Use è stato fermato."
+                break
+        self._desktop_pending_action = None
+        self._desktop_thread = None
+        self._desktop_stop_event = None
+        self.logger.info("DESKTOP", outcome)
+        try:
+            self.tts.speak(outcome, blocking=False)
+        except Exception:
+            pass
+
     def _play_game_loop(self, game_name: str, stop_event: threading.Event):
         self.logger.info("GAME", f"Avvio partita autonoma: {game_name}")
         try:
@@ -12417,7 +12568,7 @@ class CommandEngine:
             user_name = self.memory.get_user_name()
             _JARVIS_PERSONA = (
                 f"Sei F.R.A.N.C.O. (Full Responsive Autonomous Neural Control Operator), "
-                f"versione 6.0 NEXUS — l'assistente AI personale Jarvis-style di {user_name}. "
+                f"versione 7 NEXUS — l'assistente AI personale Jarvis-style di {user_name}. "
                 f"Carattere: preciso, formale ma non freddo, proattivo, efficiente. "
                 f"Parla in italiano. Risposte brevi e dirette (massimo 3-4 frasi). "
                 f"Non spiegare inutilmente cosa stai per fare, fallo e basta. "
@@ -13000,7 +13151,7 @@ class CommandEngine:
 
         to_addr = to_match.group(1)
         subject = subj_match.group(1) if subj_match else "Messaggio da FRANCO"
-        body = body_match.group(1) if body_match else "Inviato tramite FRANCO 6.0 NEXUS."
+        body = body_match.group(1) if body_match else "Inviato tramite FRANCO 7 NEXUS."
 
         return self._send_smtp_email(to_addr, subject, body)
 
@@ -13048,24 +13199,46 @@ class CommandEngine:
             return f"Non sono riuscito a fermare l'auto-miglioramento: {e}"
 
     def _cmd_targeted_self_improve(self, request: str) -> str:
-        """Miglioramento mirato: l'utente ha chiesto a voce/testo un aspetto
-        specifico su cui migliorare FRANCO. Lancia franco_self_improve.py in
-        modalita' --request in un thread separato (genera con la stessa
-        rete di sicurezza del loop autonomo: validazione + commit git, fino
-        a 4 tentativi) cosi' da non bloccare la conversazione per i 20-60s
-        che la generazione richiede, e annuncia il risultato quando pronto.
-        """
+        """Prepara un miglioramento mirato e richiede conferma prima di editarlo."""
         request = request.strip()
         if not request:
             return "Dimmi su cosa vuoi che mi migliori."
 
+        self.state.set("pending_self_improve", {
+            "request": request,
+            "created_at": time.time(),
+        }, notify=False)
+        return (
+            f"Ho preparato il miglioramento: {request}. Posso modificare il mio "
+            "codice ed eseguire i test. Di' 'conferma miglioramento' per applicarlo."
+        )
+
+    def _cmd_confirm_self_improve(self) -> str:
+        """Avvia l'editor automatico soltanto dopo una conferma esplicita."""
+        pending = self.state.get("pending_self_improve") or {}
+        request = str(pending.get("request", "")).strip()
+        if not request:
+            return "Non c'è alcun miglioramento in attesa di conferma."
+        if time.time() - float(pending.get("created_at", 0) or 0) > 15 * 60:
+            self.state.set("pending_self_improve", None, notify=False)
+            return "La proposta di miglioramento è scaduta. Ripeti cosa devo imparare."
+        self.state.set("pending_self_improve", None, notify=False)
+
         def _worker():
             try:
-                app_dir = Path(__file__).resolve().parent
+                package_dir = Path(__file__).resolve().parent
+                candidates = (
+                    package_dir / "franco_self_improve.py",
+                    package_dir.parents[1] / "franco_self_improve.py",
+                    package_dir.parents[2] / "franco_self_improve.py",
+                )
+                script = next((p for p in candidates if p.is_file()), None)
+                if not script:
+                    self.tts.speak("Il modulo di miglioramento non è installato.")
+                    return
                 result = subprocess.run(
-                    [sys.executable, str(app_dir / "franco_self_improve.py"),
-                     "--request", request],
-                    cwd=str(app_dir), capture_output=True, text=True, timeout=300,
+                    [sys.executable, str(script), "--request", request],
+                    cwd=str(script.parent), capture_output=True, text=True, timeout=300,
                 )
                 out = (result.stdout or "") + (result.stderr or "")
                 m = re.search(r"RISULTATO: SUCCESSO (\S+)", out)
@@ -13085,7 +13258,7 @@ class CommandEngine:
 
         threading.Thread(target=_worker, daemon=True, name="TargetedSelfImprove").start()
         return (
-            f"Ricevuto, {self.memory.get_user_name()}. Ci lavoro — scrivo, "
+            f"Confermato, {self.memory.get_user_name()}. Ci lavoro — scrivo, "
             f"controllo e tengo il codice solo se supera tutti i test. "
             f"Ti faccio sapere quando ho finito."
         )
@@ -17307,7 +17480,7 @@ footer{margin-top:2rem;color:var(--muted);font-size:.8rem}
 <div class="sum">__SUMMARY__ &nbsp;·&nbsp; generato __GEN__</div>
 <div class="scroll"><table><thead><tr><th>Severità</th><th>Tipo</th><th>Target</th><th>Dettaglio</th><th>Timestamp</th></tr></thead>
 <tbody>__ROWS__</tbody></table></div>
-<footer>FRANCO 6.0 NEXUS · Attack Lab · uso autorizzato red-team. __COUNT__ finding totali.</footer>
+<footer>FRANCO 7 NEXUS · Attack Lab · uso autorizzato red-team. __COUNT__ finding totali.</footer>
 </div></body></html>"""
         doc = (doc.replace("__SUMMARY__", summary).replace("__GEN__", gen)
                .replace("__ROWS__", "".join(rows)).replace("__COUNT__", str(len(fl))))
@@ -17818,7 +17991,7 @@ class RemoteDeviceController:
 
 class FrancoCore:
     """
-    Coordinatore centrale di FRANCO 6.0 NEXUS.
+    Coordinatore centrale di FRANCO 7 NEXUS.
     Inizializza e gestisce tutti i sottosistemi.
     """
 
@@ -18461,11 +18634,41 @@ class FrancoCore:
         self.state.observe("speaking", on_speaking_change)
 
     def _on_voice_partial(self, event):
-        """Prepare intent locally from partial ASR; partial text never executes."""
+        """Prepara intento ed entita' mentre l'utente sta ancora parlando.
+
+        Nessuna azione viene eseguita da una trascrizione provvisoria: il piano
+        serve soltanto a evitare lavoro ripetuto quando arriva il testo finale.
+        """
         text = (event.data or {}).get("text", "") if hasattr(event, "data") else ""
         if text:
             kind = self.latency_router.classify(text) if self.latency_router else "standard"
             self.state.set("partial_intent_class", kind, notify=False)
+            normalized = re.sub(r"\s+", " ", text).strip()
+            plan = {"text": normalized, "kind": kind, "ready_at": time.time()}
+            open_match = re.match(
+                r"^(?:ehi\s+franco\s+)?(?:apri|avvia|lancia)\s+(.+)$",
+                normalized, flags=re.IGNORECASE,
+            )
+            search_match = re.match(
+                r"^(?:ehi\s+franco\s+)?(?:cerca|cercami|trova|trovami|googla)\s+(.+)$",
+                normalized, flags=re.IGNORECASE,
+            )
+            if open_match:
+                target = open_match.group(1).strip(" .")
+                plan.update({"intent": "open_app", "target": target})
+                launcher = getattr(self, "app_launcher", None)
+                if launcher:
+                    try:
+                        resolved = launcher.find(target)
+                        if resolved:
+                            plan["resolved_app"] = resolved
+                    except Exception:
+                        pass
+            elif search_match:
+                plan.update({"intent": "web_search", "query": search_match.group(1).strip()})
+            else:
+                plan["intent"] = "conversation"
+            self.state.set("partial_plan", plan, notify=False)
 
     def _on_turn_timeout(self, turn):
         message = "Non sono riuscito a completare la richiesta in tempo. Puoi riprovarla o affidarla a Franco Code."
@@ -18532,6 +18735,17 @@ class FrancoCore:
         """Gestisce obiettivi persistenti e controlli di Franco Code."""
         text = command.strip()
         low = text.lower()
+        if low in ("ferma computer use", "stop computer use", "ferma controllo computer"):
+            return self.engine._cmd_stop_desktop_goal()
+        if low in ("conferma computer use", "confermo computer use",
+                   "conferma azione computer", "confermo azione computer"):
+            return self.engine._cmd_confirm_desktop_action()
+        desktop_match = re.match(
+            r"(?:franco code\s+)?(?:usa\s+)?computer use\s*(?:per|:|-)?\s*(.+)",
+            text, flags=re.IGNORECASE | re.DOTALL,
+        )
+        if desktop_match:
+            return self.engine._cmd_desktop_goal(desktop_match.group(1).strip())
         if low in ("report", "dammi il report", "sì dammi il report", "si dammi il report",
                    "report franco code"):
             return self.franco_code.report()

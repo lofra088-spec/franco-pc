@@ -1,6 +1,6 @@
 """
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║         FRANCO 6.0 — PATCH DUAL AI (OpenRouter + Claude fallback)            ║
+║         FRANCO 7 — PATCH DUAL AI (OpenRouter + Claude fallback)            ║
 ║                                                                              ║
 ║  Gerarchia provider:                                                         ║
 ║    1. OpenRouter  →  accesso a 200+ modelli (GPT-4o, Gemini, Mistral, ecc)  ║
@@ -117,7 +117,7 @@ class OpenRouterClient:
                  timeout:   int  = _DEFAULT_TIMEOUT,
                  max_retry: int  = _DEFAULT_MAX_RETRY,
                  site_url:  str  = "https://github.com/franco-ai",
-                 site_name: str  = "FRANCO 6.0 NEXUS"):
+                 site_name: str  = "FRANCO 7 NEXUS"):
 
         self.api_key   = (api_key or os.environ.get("OPENROUTER_API_KEY", "")).strip()
         self.model     = model
@@ -794,10 +794,11 @@ def patch_command_engine(engine, router: DualAIRouter, saver: RealFileSaver):
                 for n in notes[-3:]
             )
 
-        system = f"""Sei FRANCO 6.0 NEXUS, assistente AI di nuova generazione ispirato a JARVIS.
-Sei preciso, elegante, professionale, sottilmente ironico.
-Parli SEMPRE in italiano. Non usi emoticon né markdown nelle risposte vocali.
-Chiami sempre l'utente "{user_name}".
+        system = f"""Sei FRANCO 7 NEXUS, assistente operativo personale di {user_name}.
+Parli in italiano naturale e capisci trascrizioni vocali imperfette usando il contesto.
+Rispondi prima alla richiesta concreta. Se è un'azione, indica l'esito reale; non fingere mai di averla eseguita.
+Se manca un dettaglio indispensabile, fai una sola domanda breve. Se l'intento è chiaro, non chiedere conferme inutili.
+Non usare emoticon né markdown nelle risposte vocali. Sii conciso, preciso e utile.
 
 CONTESTO: Data: {data} — Ora: {ora} — Mood: {mood_str}
 {notes_str}
@@ -810,7 +811,7 @@ STORICO RECENTE:
                 prompt=text,
                 system=system,
                 max_tokens=1500,
-                temperature=0.9,
+                temperature=0.35,
                 task_type="conversation",
             )
         except Exception as e:
