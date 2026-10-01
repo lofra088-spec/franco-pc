@@ -70,3 +70,13 @@ def test_history_is_bounded_and_brain_errors_do_not_crash_runtime():
 
     reply = FrancoRuntime(BrokenBrain()).submit_final("dimmi qualcosa")
     assert "comandi locali" in reply.text
+
+
+def test_v7_cli_starts_without_importing_monolith():
+    root = Path(__file__).resolve().parents[1]
+    env = dict(os.environ, PYTHONPATH=str(root / "src"))
+    result = subprocess.run(
+        [sys.executable, "-m", "franco", "--v7", "--once", "conferma"],
+        check=True, env=env, capture_output=True, text=True,
+    )
+    assert "azione in attesa" in result.stdout

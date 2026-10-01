@@ -8,6 +8,10 @@ __all__ = ["main"]
 
 def main():
     args = sys.argv[1:]
+    if "--v7" in args:
+        from .v7.cli import main as run_v7
+        clean_args = [arg for arg in args if arg != "--v7"]
+        return run_v7(clean_args)
     if "--doctor" in args or "--capabilities" in args or "--version" in args:
         parser = argparse.ArgumentParser(description="Diagnostica FRANCO senza avviare servizi")
         group = parser.add_mutually_exclusive_group(required=True)
