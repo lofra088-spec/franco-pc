@@ -40,6 +40,17 @@ class OpenRouterBrain:
         return self._chat(messages, temperature=temperature,
                           max_tokens=max_tokens, model=model)
 
+    def decide_screen(self, prompt: str, image_base64: str, *, system: str) -> str:
+        content = [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}},
+        ]
+        model = os.getenv("FRANCO_OPENROUTER_VISION_MODEL", "").strip() or self.model
+        return self._chat(
+            [{"role": "system", "content": system}, {"role": "user", "content": content}],
+            temperature=0, max_tokens=350, model=model,
+        )
+
     def _chat(self, messages: list[dict[str, str]], *, temperature: float,
               max_tokens: int, model: str | None = None) -> str:
         if not self.api_key:
@@ -89,12 +100,14 @@ class WindowsActions:
 
 def build_runtime():
     from .actions import ActionRegistry
+    from .desktop_agent import DesktopAgent
     from .runtime import FrancoRuntime
     from .self_improve import SelfImprover
 
     brain = OpenRouterBrain()
     local = WindowsActions()
     intelligence = PublicIntelligence()
+    desktop = DesktopAgent(brain)
     actions = ActionRegistry()
     actions.register("open_app", local.open_app)
     actions.register("web_search", local.web_search)
@@ -102,6 +115,10 @@ def build_runtime():
     actions.register("map_search", intelligence.open_map)
     actions.register("person_research", intelligence.research_person)
     actions.register("image_geolocation", intelligence.geolocate_image)
+    actions.register("desktop_goal", desktop.start)
+    actions.register("desktop_stop", desktop.stop)
+    actions.register("desktop_confirm", desktop.confirm)
+    actions.register("desktop_status", desktop.status)
     improver = SelfImprover(brain)
     actions.register("self_improve", improver.prepare)
     actions.register("apply_improvement", improver.apply_pending)

@@ -25,6 +25,9 @@ Fast V7 commands include:
   manual Max Intel comparison; private contact and location data are excluded;
 - `geolocalizza questa foto C:\foto\piazza.jpg` using GeoSpy when
   `GEOSPY_API_KEY` is configured;
+- `usa Computer Use per aprire Chrome e cercare ...`; the bounded visual loop
+  checks the screen after every step, supports stop/status commands and asks
+  before external or destructive actions;
 - `migliorati su ...`, followed by `conferma miglioramento` only after Franco
   has shown what it understood and which files it proposes to change.
 

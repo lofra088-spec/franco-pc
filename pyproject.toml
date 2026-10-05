@@ -16,7 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 voice = ["SpeechRecognition", "pyaudio", "edge-tts"]
-desktop = ["SpeechRecognition", "sounddevice"]
+desktop = ["SpeechRecognition", "sounddevice", "pyautogui", "Pillow"]
 ai = ["anthropic", "openai"]
 full = ["SpeechRecognition", "pyaudio", "edge-tts", "anthropic", "openai", "requests", "cryptography"]
 dev = ["pytest", "ruff"]
