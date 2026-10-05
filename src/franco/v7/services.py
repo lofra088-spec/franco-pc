@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
-import subprocess
 import urllib.parse
 import urllib.request
 import webbrowser
+
+from .app_launcher import WindowsAppLauncher
+from .intelligence import PublicIntelligence
 
 
 class OpenRouterBrain:
@@ -20,8 +21,6 @@ class OpenRouterBrain:
         self.model = model or os.getenv("FRANCO_OPENROUTER_MODEL", "openrouter/auto")
 
     def answer(self, text: str, *, context: list[dict[str, str]]) -> str:
-        if not self.api_key:
-            raise RuntimeError("OPENROUTER_API_KEY non configurata")
         system = {
             "role": "system",
             "content": (
@@ -30,50 +29,52 @@ class OpenRouterBrain:
                 "Non dichiarare mai di avere eseguito un'azione se non ricevi un esito reale."
             ),
         }
+        return self._chat([system, *context, {"role": "user", "content": text}],
+                          temperature=.35, max_tokens=600)
+
+    def complete(self, prompt: str, *, system: str, max_tokens: int = 2000,
+                 temperature: float = .2, model: str | None = None) -> str:
+        """Single-shot completion for code and self-modification tasks."""
+        messages = [{"role": "system", "content": system},
+                    {"role": "user", "content": prompt}]
+        return self._chat(messages, temperature=temperature,
+                          max_tokens=max_tokens, model=model)
+
+    def _chat(self, messages: list[dict[str, str]], *, temperature: float,
+              max_tokens: int, model: str | None = None) -> str:
+        if not self.api_key:
+            raise RuntimeError("OPENROUTER_API_KEY non configurata")
         payload = json.dumps({
-            "model": self.model,
-            "messages": [system, *context, {"role": "user", "content": text}],
-            "temperature": .35,
-            "max_tokens": 600,
+            "model": model or self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
         }).encode("utf-8")
         request = urllib.request.Request(
             self.endpoint, data=payload, method="POST",
             headers={"Authorization": f"Bearer {self.api_key}",
                      "Content-Type": "application/json", "X-Title": "Franco 7"},
         )
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with urllib.request.urlopen(request, timeout=60) as response:
             data = json.load(response)
-        return str(data["choices"][0]["message"].get("content") or "").strip()
+        if not isinstance(data, dict) or not data.get("choices"):
+            detail = data.get("error") if isinstance(data, dict) else None
+            raise RuntimeError(f"Risposta OpenRouter non valida{': ' + str(detail) if detail else ''}")
+        try:
+            return str(data["choices"][0]["message"].get("content") or "").strip()
+        except (KeyError, TypeError, IndexError) as exc:
+            raise RuntimeError("OpenRouter non ha restituito testo utilizzabile") from exc
 
 
 class WindowsActions:
     """Fast local actions without loading the legacy application."""
 
     def __init__(self):
-        self._known = {
-            "chrome": ("process", ["chrome.exe"]),
-            "discord": ("uri", "discord:"),
-            "obs": ("process", ["obs64.exe"]),
-        }
+        self._launcher = WindowsAppLauncher()
 
     def open_app(self, name: str) -> str:
-        clean = name.casefold().strip()
-        target = next((value for key, value in self._known.items() if key in clean), None)
-        if target is None:
-            # Windows resolves registered applications without a shell command
-            # interpreter and reports failure immediately when no target exists.
-            candidate = Path(name).expanduser()
-            if candidate.is_file():
-                os.startfile(str(candidate))
-                return f"Apro {candidate.name}."
-            raise LookupError(f"Applicazione non configurata: {name}")
-        kind, value = target
-        if kind == "uri":
-            os.startfile(value)
-        else:
-            subprocess.Popen(value, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                             shell=False)
-        return f"Apro {name}."
+        launched = self._launcher.launch(name)
+        return f"Apro {launched}."
 
     @staticmethod
     def web_search(query: str) -> str:
@@ -82,17 +83,28 @@ class WindowsActions:
 
     @staticmethod
     def world_map() -> str:
-        webbrowser.open("https://argosatlas.com/")
+        webbrowser.open("https://www.argosatlas.com/map/")
         return "Apro Franco Mappa con la vista mondiale in tempo reale."
 
 
 def build_runtime():
     from .actions import ActionRegistry
     from .runtime import FrancoRuntime
+    from .self_improve import SelfImprover
 
+    brain = OpenRouterBrain()
     local = WindowsActions()
+    intelligence = PublicIntelligence()
     actions = ActionRegistry()
     actions.register("open_app", local.open_app)
     actions.register("web_search", local.web_search)
     actions.register("world_map", local.world_map)
-    return FrancoRuntime(OpenRouterBrain(), actions)
+    actions.register("map_search", intelligence.open_map)
+    actions.register("person_research", intelligence.research_person)
+    actions.register("image_geolocation", intelligence.geolocate_image)
+    improver = SelfImprover(brain)
+    actions.register("self_improve", improver.prepare)
+    actions.register("apply_improvement", improver.apply_pending)
+    actions.register("cancel_improvement", improver.cancel_pending)
+    actions.register("revert_improve", improver.revert_last)
+    return FrancoRuntime(brain, actions)

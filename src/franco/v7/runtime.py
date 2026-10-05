@@ -1,9 +1,9 @@
 """Conversation-first coordinator for the rebuilt Franco V7."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from collections import deque
 import time
+from collections import deque
+from dataclasses import dataclass
 
 from .actions import ActionRegistry
 from .contracts import Brain, PreparedTurn
@@ -46,7 +46,13 @@ class FrancoRuntime:
         if intent.name == "cancel":
             return RuntimeReply(self.actions.cancel(), "cancel", True)
         if self.actions.has(intent.name):
-            return RuntimeReply(self.actions.execute(intent), intent.name, True)
+            try:
+                text = self.actions.execute(intent)
+            except Exception as exc:  # noqa: BLE001 - actions are extension boundaries
+                return RuntimeReply(
+                    f"Non ho completato l'azione: {exc}", intent.name, False,
+                )
+            return RuntimeReply(text, intent.name, True)
 
         if time.monotonic() < self._brain_blocked_until:
             return RuntimeReply(
@@ -56,7 +62,7 @@ class FrancoRuntime:
         try:
             answer = self.brain.answer(text, context=list(self.history)[-8:])
             self._brain_failures = 0
-        except Exception:
+        except Exception:  # noqa: BLE001 - provider failures must not crash the assistant
             self._brain_failures += 1
             if self._brain_failures >= 3:
                 self._brain_blocked_until = time.monotonic() + 30

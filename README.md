@@ -1,4 +1,38 @@
-# FRANCO 6.0 — NEXUS EDITION
+# FRANCO 7 — clean desktop core
+
+The new V7 lives in `src/franco/v7` and does not import the legacy monolith.
+It keeps local commands fast and sends only open conversation to OpenRouter.
+The desktop UI is an always-on-top orange orb: click it to open the panel and
+switch between Chat, Map & public sources, and Settings.
+
+```powershell
+pip install -e ".[desktop,dev]"
+python -m franco --v7 --desktop
+```
+
+On Windows you can also double-click
+`src/franco/v7/avvia_franco_v7.bat`. The microphone and Franco's spoken voice
+have separate mute controls. Partial speech is interpreted while the user is
+speaking, but actions execute only after endpoint detection finalizes the turn.
+
+Fast V7 commands include:
+
+- `apri OBS`, `apri Discord`, or another installed Start Menu application;
+- `Franco mappa`;
+- `mostrami le telecamere di Catanzaro`;
+- `mostrami tutti i voli sopra Boston`;
+- `cerca una persona Mario Rossi` for a sourced public-profile lead and a
+  manual Max Intel comparison; private contact and location data are excluded;
+- `geolocalizza questa foto C:\foto\piazza.jpg` using GeoSpy when
+  `GEOSPY_API_KEY` is configured;
+- `migliorati su ...`, followed by `conferma miglioramento` only after Franco
+  has shown what it understood and which files it proposes to change.
+
+Confirmed self-improvements compile, import, and run the V7 test suite. A
+failed verification restores every touched file. Code size is not a target:
+features must have a real handler and tests rather than placeholder lines.
+
+## Legacy Franco 6
 
 F.R.A.N.C.O. 6.0 — NEXUS EDITION
 
