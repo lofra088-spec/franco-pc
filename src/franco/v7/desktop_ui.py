@@ -14,6 +14,9 @@ PANEL = "#1e1b17"
 TEXT = "#f5eee4"
 DIM = "#b1a494"
 ORANGE = "#ff983f"
+GOLD = "#ffd27a"
+AMBER = "#c96724"
+BRONZE = "#6f3518"
 KEY_COLOR = "#010203"
 
 
@@ -38,7 +41,7 @@ class OrbApplication:
     No model, network, ASR or TTS calls execute from a Tk callback.
     """
 
-    SIZE = 164
+    SIZE = 224
 
     def __init__(self, controller, *, root=None, config_path=None):
         self.controller = controller
@@ -110,40 +113,116 @@ class OrbApplication:
 
     def _build_orb(self):
         c = self.SIZE / 2
-        # Opaque filaments on a transparent window, no image cache or GPU model.
-        self._orbit = self.canvas.create_oval(c-69, c-69, c+69, c+69, outline="#824318", width=1)
-        self._arcs = [self.canvas.create_arc(c-63, c-63, c+63, c+63, style="arc",
-                       outline=ORANGE, width=2, extent=70, start=i*120) for i in range(3)]
+        # Layered HUD geometry inspired by the supplied orange energy sphere.
+        # Everything remains native Canvas geometry: no large texture, GPU or
+        # neural model is held in memory while the orb is resident.
+        self._hud = []
+        for inset, color in ((9, BRONZE), (18, "#8a421d")):
+            length = 30 if inset == 9 else 18
+            corners = (
+                (inset, inset, inset + length, inset),
+                (inset, inset, inset, inset + length),
+                (self.SIZE-inset, inset, self.SIZE-inset-length, inset),
+                (self.SIZE-inset, inset, self.SIZE-inset, inset+length),
+                (inset, self.SIZE-inset, inset+length, self.SIZE-inset),
+                (inset, self.SIZE-inset, inset, self.SIZE-inset-length),
+                (self.SIZE-inset, self.SIZE-inset, self.SIZE-inset-length, self.SIZE-inset),
+                (self.SIZE-inset, self.SIZE-inset, self.SIZE-inset, self.SIZE-inset-length),
+            )
+            self._hud.extend(self.canvas.create_line(*coords, fill=color, width=1)
+                             for coords in corners)
+        self._hud.extend([
+            self.canvas.create_line(18, 38, 80, 38, fill=AMBER, width=2),
+            self.canvas.create_line(self.SIZE-72, self.SIZE-28, self.SIZE-18,
+                                    self.SIZE-28, fill=AMBER, width=2),
+            self.canvas.create_line(25, self.SIZE-20, 50, self.SIZE-20,
+                                    fill=BRONZE, width=1),
+        ])
+        self._halos = [
+            self.canvas.create_oval(c-rx, c-ry, c+rx, c+ry, outline=color, width=width)
+            for rx, ry, color, width in (
+                (92, 92, "#3f2418", 1), (82, 88, BRONZE, 1),
+                (73, 82, "#8a421d", 1), (57, 66, "#b05a25", 1),
+            )
+        ]
+        self._arcs = []
+        for index, (radius, extent, width, color) in enumerate((
+            (94, 44, 1, BRONZE), (87, 72, 2, AMBER), (78, 38, 1, ORANGE),
+            (70, 96, 2, "#e77c2f"), (60, 58, 1, GOLD), (48, 120, 2, ORANGE),
+        )):
+            self._arcs.append(self.canvas.create_arc(
+                c-radius, c-radius, c+radius, c+radius, style="arc", outline=color,
+                width=width, extent=extent, start=index*57,
+            ))
+        self._ticks = []
+        for index in range(56):
+            angle = index * math.tau / 56
+            inner = 78 + (index % 5 == 0) * -5
+            outer = 83 + (index % 7 == 0) * 7
+            self._ticks.append(self.canvas.create_line(
+                c + math.cos(angle)*inner, c + math.sin(angle)*inner,
+                c + math.cos(angle)*outer, c + math.sin(angle)*outer,
+                fill=AMBER if index % 5 == 0 else BRONZE,
+                width=2 if index % 7 == 0 else 1,
+            ))
         self._points = []
-        for i in range(260):
-            z = 1 - 2 * (i + .5) / 260
+        point_count = 360
+        for i in range(point_count):
+            z = 1 - 2 * (i + .5) / point_count
             angle = i * math.pi * (3 - math.sqrt(5))
             radius = math.sqrt(1 - z*z)
             point = (radius * math.cos(angle), z, radius * math.sin(angle))
             item = self.canvas.create_oval(0, 0, 2, 2, fill=ORANGE, outline="")
             self._points.append((point, item))
-        self._core = self.canvas.create_oval(c-7, c-7, c+7, c+7, fill="#ffe0a1", outline=ORANGE)
-        self._badge = self.canvas.create_text(c, self.SIZE + 8, text="FRANCO", fill=ORANGE,
-                                               font=("Segoe UI", 10, "bold"))
+        self._filaments = [self.canvas.create_line(0, 0, 0, 0, fill=AMBER, width=1)
+                           for _ in range(42)]
+        self._core_glow = self.canvas.create_oval(c-22, c-22, c+22, c+22,
+                                                  outline=AMBER, width=2)
+        self._core_ring = self.canvas.create_oval(c-13, c-13, c+13, c+13,
+                                                  outline=ORANGE, width=2)
+        self._core = self.canvas.create_oval(c-5, c-5, c+5, c+5,
+                                             fill=GOLD, outline="#fff0bd")
+        self._badge = self.canvas.create_text(c, self.SIZE + 9, text="FRANCO",
+                                               fill=ORANGE,
+                                               font=("Cascadia Mono", 9, "bold"))
 
     def _animate(self):
         t = 0 if self._reduced else time.monotonic() - self._start
         c = self.SIZE / 2
         rotation = t * (.65 if self._busy else .17)
         cosine, sine = math.cos(rotation), math.sin(rotation)
-        radius = 53 * (1 + .025 * math.sin(t * 2.2))
+        radius = 72 * (1 + .025 * math.sin(t * 2.2))
+        projected = []
         for (x, y, z), item in self._points:
             px, depth = x*cosine + z*sine, z*cosine - x*sine
-            py = y*.94 - depth*.34
+            py = y*.92 - depth*.27
             perspective = 1 + depth*.12
             sx, sy = c + px*radius*perspective, c + py*radius*perspective
             size = 1.4 if depth > 0 else .85
             brightness = .45 + .55*(depth+1)/2
-            color = f"#{int(255*brightness):02x}{int(150*brightness):02x}{int(52*brightness):02x}"
+            red = int(255*brightness)
+            green = int((116 + (depth+1)*32)*brightness)
+            blue = int(35*brightness)
+            color = f"#{red:02x}{green:02x}{blue:02x}"
             self.canvas.coords(item, sx-size, sy-size, sx+size, sy+size)
             self.canvas.itemconfigure(item, fill=color)
+            projected.append((sx, sy, depth))
+        for index, line in enumerate(self._filaments):
+            first = projected[(index*7 + int(t*4)) % len(projected)]
+            second = projected[(index*19 + 83 + int(t*3)) % len(projected)]
+            if first[2] + second[2] > -.15:
+                self.canvas.coords(line, first[0], first[1], second[0], second[1])
+                self.canvas.itemconfigure(line, state="normal",
+                                          fill=GOLD if index % 7 == 0 else AMBER)
+            else:
+                self.canvas.itemconfigure(line, state="hidden")
         for i, arc in enumerate(self._arcs):
-            self.canvas.itemconfigure(arc, start=(t*25+i*120)%360)
+            direction = -1 if i % 2 else 1
+            self.canvas.itemconfigure(arc, start=(direction*t*(18+i*3)+i*57)%360)
+        pulse = 16 + 5 * (.5 + .5*math.sin(t*3.1))
+        self.canvas.coords(self._core_glow, c-pulse, c-pulse, c+pulse, c+pulse)
+        knot = 8 + 3 * (.5 + .5*math.cos(t*4.3))
+        self.canvas.coords(self._core_ring, c-knot, c-knot, c+knot, c+knot)
         self._later(250 if self._reduced else (40 if self._busy or self._mic else 80), self._animate)
 
     def _button(self, parent, text, command, *, accent=False):
