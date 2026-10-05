@@ -23,6 +23,12 @@ SYSTEM_PROMPT = (
     'oppure {"action":"done","reason":"obiettivo verificato o impossibile"}.'
 )
 
+SENSITIVE_GOAL_WORDS = (
+    "invia", "pubblica", "compra", "acquista", "cancella", "elimina", "carica",
+    "upload", "stampa", "avvia live", "avvia trasmissione", "login", "accedi",
+    "password", "paga", "bonifico",
+)
+
 
 class DesktopAgent:
     MAX_STEPS = 30
@@ -36,6 +42,7 @@ class DesktopAgent:
         self._stop = Event()
         self._confirmation = Event()
         self._pending = None
+        self._pending_goal = None
         self._thread = None
         self._status = "Computer Use inattivo."
 
@@ -43,6 +50,17 @@ class DesktopAgent:
         goal = " ".join(str(goal or "").split()).strip()
         if not goal:
             return "Dimmi quale obiettivo deve completare Computer Use."
+        if any(word in goal.casefold() for word in SENSITIVE_GOAL_WORDS):
+            with self._lock:
+                if self._thread and self._thread.is_alive():
+                    return "Computer Use sta gia' lavorando."
+                self._pending_goal = goal
+                self._status = f"Serve conferma per avviare: {goal}"
+            return (f"Serve conferma prima di avviare questo obiettivo: {goal}. "
+                    "Di' 'conferma computer use' oppure 'ferma computer use'.")
+        return self._begin(goal)
+
+    def _begin(self, goal: str) -> str:
         automation = self._get_automation()
         with self._lock:
             if self._thread and self._thread.is_alive():
@@ -50,6 +68,7 @@ class DesktopAgent:
             self._stop = Event()
             self._confirmation = Event()
             self._pending = None
+            self._pending_goal = None
             self._status = f"Computer Use sta lavorando su: {goal}"
             self._thread = Thread(target=self._run, args=(goal, automation), daemon=True,
                                   name="FrancoV7-ComputerUse")
@@ -62,10 +81,17 @@ class DesktopAgent:
         self._confirmation.set()
         with self._lock:
             active = bool(self._thread and self._thread.is_alive())
+            self._pending_goal = None
             self._status = "Computer Use si sta fermando." if active else "Computer Use inattivo."
         return self._status
 
     def confirm(self) -> str:
+        with self._lock:
+            goal, self._pending_goal = self._pending_goal, None
+            if goal is None and self._pending is None:
+                return "Computer Use non ha azioni in attesa di conferma."
+        if goal is not None:
+            return self._begin(goal)
         with self._lock:
             if self._pending is None:
                 return "Computer Use non ha azioni in attesa di conferma."

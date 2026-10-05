@@ -90,6 +90,19 @@ def test_desktop_intent_marks_external_goals_for_confirmation():
 
     assert safe.name == sensitive.name == "desktop_goal"
     assert not safe.requires_confirmation
-    assert sensitive.requires_confirmation
+    assert not sensitive.requires_confirmation
     assert parser.parse("ferma computer use").name == "desktop_stop"
     assert parser.parse("stato computer use").name == "desktop_status"
+
+
+def test_sensitive_goal_waits_before_starting_agent():
+    automation = Automation()
+    brain = Brain([{"action": "done", "reason": "Live avviata"}])
+    agent = DesktopAgent(brain, automation=automation, step_pause=0)
+
+    result = agent.start("avvia trasmissione")
+
+    assert "Serve conferma" in result
+    assert brain.calls == []
+    assert "ha preso" in agent.confirm()
+    eventually(lambda: agent.status() == "Live avviata")

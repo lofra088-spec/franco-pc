@@ -52,11 +52,6 @@ class IntentParser:
                "annulla il miglioramento", "ripristina il tuo codice",
                "ripristina il codice", "rollback miglioramento",
                "annulla modifica al codice")
-    _SENSITIVE_DESKTOP = (
-        "invia", "pubblica", "compra", "acquista", "cancella", "elimina",
-        "carica", "upload", "stampa", "avvia live", "avvia trasmissione",
-        "login", "accedi", "password", "paga", "bonifico",
-    )
 
     def parse(self, text: str) -> Intent:
         clean = normalize(text)
@@ -107,9 +102,7 @@ class IntentParser:
         match = self._DESKTOP.match(clean)
         if match:
             goal = match.group(1).strip()
-            sensitive = any(word in goal.casefold() for word in self._SENSITIVE_DESKTOP)
-            return Intent("desktop_goal", {"goal": goal}, .98,
-                          requires_confirmation=sensitive)
+            return Intent("desktop_goal", {"goal": goal}, .98)
         match = self._OPEN.match(clean)
         if match:
             return Intent("open_app", {"name": match.group(1).strip(" .")}, .99)
